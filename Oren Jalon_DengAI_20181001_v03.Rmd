@@ -1,0 +1,1106 @@
+---
+title: "DengAI"
+author: "Oren Jalon"
+date: "October 1, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r library, echo=FALSE, warning=FALSE, message=FALSE}
+# library(psych)
+# library(ggplot2)
+# library(lattice)
+# library(sqldf)
+# library(outliers)
+# library(Hmisc)
+# library(missForest)
+# library(imputeTS)
+# library(pastecs)
+```
+
+#Preliminary Data Preparation
+
+This section includes importing the data, creating of new variables and establishing the dataframes for the initial analysis
+
+###Import raw data
+```{r import, echo=TRUE}
+dengue_features_test <- read.csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_test.csv", header = TRUE, stringsAsFactors = FALSE)
+dengue_features_train <- read.csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_train.csv", header = TRUE, stringsAsFactors = FALSE)
+dengue_labels_train <- read.csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_labels_train.csv", header = TRUE, stringsAsFactors = FALSE)
+submission_format <- read.csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/submission_format.csv", header = TRUE, stringsAsFactors = FALSE)
+
+```
+
+###Convert week_start_date to date format
+```{r date weeks_start_date, echo=TRUE}
+dengue_features_test$week_start_date <- as.Date(dengue_features_test$week_start_date, "%Y-%m-%d")
+dengue_features_train$week_start_date <- as.Date(dengue_features_train$week_start_date, "%Y-%m-%d")
+```
+
+###Convert city to factor
+```{r city as factor, echo=TRUE}
+dengue_features_test$city <- as.factor(dengue_features_test$city)
+dengue_features_train$city <- as.factor(dengue_features_train$city)
+```
+###Merge test and train set without the total_cases
+```{r full, echo=TRUE}
+df <- rbind(dengue_features_train,dengue_features_test)
+
+```
+###Divide the test and training sets into sj and iq separately
+```{r sj & iq, echo=TRUE}
+iq_features_test <- dengue_features_test[dengue_features_test$city == 'iq', ]
+sj_features_test <- dengue_features_test[dengue_features_test$city == 'sj', ]
+iq_features_train <- dengue_features_train[dengue_features_train$city == 'iq', ]
+sj_features_train <- dengue_features_train[dengue_features_train$city == 'sj', ]
+iq_labels_train <- dengue_labels_train[dengue_labels_train$city == 'iq', ]
+sj_labels_train <- dengue_labels_train[dengue_labels_train$city == 'sj', ]
+```
+
+###Merge test and training sets separately for each city without total_cases
+```{r merge sj & iq, echo=TRUE}
+sj <- rbind(sj_features_train,sj_features_test)
+iq <- rbind(iq_features_train,iq_features_test)
+```
+
+###Merge train  and label sets to include total_cases
+```{r add labels, echo=TRUE}
+
+df_train_labels <- merge(dengue_features_train, dengue_labels_train, by=c("city","year","weekofyear"))
+
+```
+
+###Merge test and training sets separately for each city including  total_cases
+```{r merge sj & iq & labels, echo=TRUE}
+sj_train_labels <- merge(sj_features_train, sj_labels_train, by=c("city","year","weekofyear"))
+iq_train_labels <- merge(iq_features_train, iq_labels_train, by=c("city","year","weekofyear"))
+```
+
+#Initial Analysis
+
+In this section, we summary the value of the data frames (together and by city).  We also create the following graphs
+
+1. Frequency histograms
+2. Bivariate analysis - line graphs for time analysis
+3. Bivariate analysis - scatterplot for total_cases by other variables
+4. Wilcoxon test for test of means between cities
+
+
+###Review summary stats for each city
+```{r summary, echo=TRUE, warning=FALSE}
+library(psych)
+df_test.summary <- psych::describe(dengue_features_test, IQR=TRUE, quant=c(.25,.75) )
+View(df_test.summary)
+df_train.summary <- psych::describe(dengue_features_train, IQR=TRUE, quant=c(.25,.75) )
+View(df_train.summary)
+
+sj_train.summary <- psych::describe(sj_train_labels, IQR=TRUE, quant=c(.25,.75) )
+View(sj_train.summary)
+
+iq_train.summary <- psych::describe(iq_train_labels, IQR=TRUE, quant=c(.25,.75) )
+View(iq_train.summary)
+
+
+df.summary <- psych::describe(df, IQR=TRUE, quant=c(.25,.75))
+View(df.summary)
+sj.summary <- psych::describe(sj, IQR=TRUE, quant=c(.25,.75) )
+View(sj.summary)
+iq.summary <- psych::describe(iq, IQR=TRUE, quant=c(.25,.75) )
+View(iq.summary)
+
+summary(dengue_features_test$week_start_date)
+summary(dengue_features_train$week_start_date)
+summary(iq_features_train$week_start_date)
+summary(iq_features_test$week_start_date)
+summary(sj_features_train$week_start_date)
+summary(sj_features_test$week_start_date)
+ 
+```
+
+###GRAPH: Frequency histogram of all variables in training set (both cities together)
+
+These graphs only include data from the training set as it includes total cases.  Climate data across both training and test sets are below.
+```{r graph histogram all, echo=TRUE}
+
+cnames <- colnames(df_train_labels) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df_train_labels)-1)) {
+ hist(df_train_labels[,i],
+      breaks = 20,
+      main = paste("Freq Histogram", cnames[i], sep = ": "),
+      xlab = cnames[i])
+}
+
+hist(df_train_labels$total_cases, 
+     breaks = 20,
+     main = paste("Freq Histogram: total_cases"))
+
+```
+
+###GRAPH: Frequency histogram of all variables in training set for **SJ**
+Same as above but only for SJ.
+```{r graph histogram SJ, echo=TRUE}
+cnames <- colnames(df_train_labels) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df_train_labels)-1)) {
+ hist(df_train_labels[df_train_labels$city == "sj",i], 
+      breaks = 20,
+      xlab = cnames[i], 
+      main = paste("Freq Histogram for SJ", cnames[i], sep = ": "))
+}
+
+hist(df_train_labels$total_cases[df_train_labels$city == "sj"], 
+     breaks = 20,
+     main = "Freq Histogram for SJ: total_cases")
+```
+
+###GRAPH: Frequency histogram of all variables in training set for **IQ**
+Same as above but only for IQ.
+```{r graph histogram IQ, echo=TRUE}
+cnames <- colnames(df_train_labels) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df_train_labels)-1)) {
+ hist(df_train_labels[df_train_labels$city == "iq",i],
+      breaks = 20,
+      xlab = cnames[i],
+      main = paste("Freq Histogram for IQ", cnames[i], sep = ": "))
+}
+
+hist(df_train_labels$total_cases[df_train_labels$city == "iq"], 
+     breaks = 20,
+     main = "Freq Histogram for IQ: total_cases")
+```
+
+###GRAPH: Climate variables by time for **SJ**
+Includes all the data from test and training set by time for SJ therefore the total_cases in not included.  Total_cases by time is done separately.
+
+```{r graph sj initial analysis, echo=TRUE}
+cnames <- colnames(sj) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(sj))) {
+ plot(sj$week_start_date,sj[,i],
+      type = "n",
+      ylim = c(min(sj[,i],na.rm=TRUE), max(sj[,i],na.rm=TRUE)),
+      ylab = cnames[i],
+      main = paste("Time Analysis for SJ", cnames[i], sep = ": "))
+ lines(sj$week_start_date,sj[,i])
+}
+
+#ATTEMPTED GGPLOT - COULDN'T LABEL Y AXIS SO BAILED
+# library(ggplot2)
+# for (i in 9:ncol(sj)) {
+# sj.lineplot <- ggplot(data = sj, aes(x = week_start_date, y = sj[,i])) +
+#   geom_line(stat = "identity", fill = "blue") 
+#   labs(title = colnames(sj[,i]),
+#        subtitle = "DATE RANGE HERE",
+#        x = "Date", y =cnames[i])
+# print(sj.lineplot)
+#}
+```
+
+###GRAPH: Climate variables by time for **IQ**
+Includes all the data from test and training set by time for I therefore the total_cases in not included.  Total_cases by time is done separately.
+```{r graph iq initial analysis, echo=TRUE}
+
+cnames <- colnames(iq) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(iq))) {
+ plot(iq$week_start_date,iq[,i],
+      type = "n",
+      ylim = c(min(iq[,i],na.rm=TRUE), max(iq[,i],na.rm=TRUE)),
+      ylab = cnames[i],
+      main = paste("Time Analysis for IQ", cnames[i], sep = ": "))
+ lines(iq$week_start_date,iq[,i])
+}
+```
+
+###GRAPH: Total_cases by time for **SJ**, **IQ** and together
+Line graph of all data by total cases.  This uses only the training set.
+```{r graph total cases time analysis, echo=TRUE}
+library(ggplot2)
+par(mfcol=c(1,3))
+# Dengue Cases both cities together
+ggplot(data = df_train_labels, aes(x=week_start_date, y=total_cases)) +
+       geom_bar(stat = "identity", fill = "purple") +
+  labs(title = "Total Dengue Cases - both cities combined",
+       subtitle = paste(min(df_train_labels$week_start_date),max(df_train_labels$week_start_date), sep = " to "),
+       x = "Date", y = "Total dengue cases")
+
+#Dengue Cases for San Jose
+ggplot(data = df_train_labels[df_train_labels$city == "sj",], aes(x=week_start_date, y=total_cases)) +
+       geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Total Dengue Cases in San Jose",
+       subtitle = paste(min(df_train_labels$week_start_date[df_train_labels$city == "sj"]),max(df_train_labels$week_start_date[df_train_labels$city == "sj"]), sep = " to "),
+       x = "Date", y = "Total dengue cases")
+
+# Dengue Cases for Iquitos
+ggplot(data = df_train_labels[df_train_labels$city == "iq",], aes(x=week_start_date, y=total_cases)) +
+       geom_bar(stat = "identity", fill = "green") +
+  labs(title = "Total Dengue Cases in Iquitos",
+       subtitle = paste(min(df_train_labels$week_start_date[df_train_labels$city == "iq"]),max(df_train_labels$week_start_date[df_train_labels$city == "iq"]), sep = " to "),
+       x = "Date", y = "Total dengue cases")
+
+```
+
+###GRAPH: Total_cases by climate variables (both cities together)
+Scatterplot using training set only.
+```{r graph total cases analysis, echo=TRUE}
+
+cnames <- colnames(df_train_labels) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df_train_labels)-1)) {
+ plot(df_train_labels$total_cases,
+      df_train_labels[,i], 
+      cex = 0.5, 
+      pch = 19,
+      ylim = c(min(df_train_labels[,i],na.rm=TRUE), max(df_train_labels[,i],na.rm=TRUE)),
+      main = paste("Total_cases by climate variables", cnames[i], sep = ": "),
+      ylab = cnames[i])
+ 
+}
+```
+
+###GRAPH: Total_cases by climate variables for **SJ**
+Same as above but for SJ
+```{r graph SJ total cases analysis, echo=TRUE}
+
+
+cnames <- colnames(df_train_labels) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df_train_labels)-1)) {
+ plot(df_train_labels$total_cases[df_train_labels$city == "sj"],
+      df_train_labels[df_train_labels$city == "sj",i], 
+      cex = 0.5, 
+      pch = 19,
+      ylim = c(min(df_train_labels[,i],na.rm=TRUE), max(df_train_labels[,i],na.rm=TRUE)),
+      main = paste("Total_cases for SJ by climate variables", cnames[i], sep = ": "),
+      ylab = cnames[i])
+ 
+}
+```
+
+###GRAPH: Total_cases by climate variables for **IQ**
+Same as above but for IQ.
+```{r graph IQ total cases analysis, echo=TRUE}
+
+
+cnames <- colnames(df_train_labels) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df_train_labels)-1)) {
+ plot(df_train_labels$total_cases[df_train_labels$city == "iq"],
+      df_train_labels[df_train_labels$city == "iq",i], 
+      cex = 0.5, 
+      pch = 19,
+      ylim = c(min(df_train_labels[,i],na.rm=TRUE), max(df_train_labels[,i],na.rm=TRUE)),
+      main = paste("Total_cases for IQ by climate variables", cnames[i], sep = ": "),
+      ylab = cnames[i])
+ 
+}
+```
+
+##Compare the means between same variables in different cities
+We can see that the same feature is significantly different in each city 
+
+```{r means between cities, echo = TRUE}
+for (i in 5:(ncol(dengue_features_train))){
+  wilt <- wilcox.test(sj_train_labels[,i],iq_train_labels[,i])  
+  print(wilt)
+}
+
+
+```
+
+
+#Analysis of Outliers
+
+###GRAPH: Boxplot of climate variables (test and train)
+Boxplot inlcudes test and training set - NA still included
+```{r graph boxplot, echo=TRUE}
+library(ggplot2)
+cnames <- colnames(df) 
+par(mfrow=c(2,2))
+for (i in 9:(ncol(df))) {
+ p <- ggplot(df, aes(x=city, y = df[,i], fill = city)) + 
+  geom_boxplot() +
+   labs(title = "Boxplot of climate variables",
+       subtitle = cnames[i],
+       x = "City", y = cnames[i])
+ print(p)
+}
+rm(p)
+```
+
+###GRAPH: Boxplot of total cases
+```{r graph boxplot total cases, echo=TRUE}
+library(ggplot2)
+ggplot(df_train_labels, aes(x=city, y = total_cases, fill = city)) + 
+  geom_boxplot() +
+   labs(title = "Boxplot of Total_cases",
+       x = "City", y = "Total_cases")
+```
+
+
+#Missing Values
+
+In this section, we look at the number of missing values.  Later we will do something about these missing values.
+
+```{r count missing values, echo=TRUE}
+df.na <- sapply(df, function(x) sum(is.na (x)))
+
+sj.na <- sapply(sj, function(x) sum(is.na (x)))
+sj_train.na <- sapply(sj_train_labels, function(x) sum(is.na (x)))
+
+iq.na <- sapply(iq, function(x) sum(is.na (x)))
+iq_train.na <- sapply(iq_train_labels, function(x) sum(is.na (x)))
+
+df_train_labels.na <- sum(is.na(df_train_labels$total_cases))
+View(df.na)
+View(sj.na)
+View(iq.na)
+View(sj_train.na)
+View(iq_train.na)
+
+
+df_train_labels.na
+rm(df.na)
+rm(sj.na)
+rm(iq.na)
+rm(sj_train.na)
+rm(iq_train.na)
+rm(df_train_labels.na)
+```
+
+#Correlation Analysis (before missing values are addressed)
+
+In this section, we look at the correlation between the total_cases and the climate variables.  
+
+First we need to remove any of the non-numeric variables.  The missing values are still in this first correlation analysis but this will be repeated with the missing values included.
+
+```{r correlation, echo=TRUE}
+library(corrplot)
+#For both cities together 
+df_train_labels.cor <-data.frame(round(cor(df_train_labels[,5:25],use = "complete.obs"),2))
+
+View(df_train_labels.cor)         
+
+corrplot(as.matrix(df_train_labels.cor), 
+         type = 'upper',
+         tl.col = 'black',
+         method = 'shade',
+         title = "Corrplot for both cities")
+
+#Correlation for SJ
+
+sj_train_labels.cor <-data.frame(round(cor(sj_train_labels[,5:25],
+                                           use = "complete.obs"),2))
+View(sj_train_labels.cor)         
+
+corrplot(as.matrix(sj_train_labels.cor), 
+         method = "number",
+         type = "upper",
+         title = "Corrplot for SJ")
+
+#Correlation for IQ
+
+iq_train_labels.cor <-data.frame(round(cor(iq_train_labels[,5:25],
+                                           use = "complete.obs"),2))
+View(iq_train_labels.cor)         
+
+corrplot(as.matrix(iq_train_labels.cor), 
+         method = "number",
+         type = "upper",
+         title = "Corrplot for IQ")
+```
+
+###Export correlation to CSV
+```{r export corr, echo=TRUE}
+# write.csv(df_train_labels.cor, file = "df_train_labels.cor.csv")
+# write.csv(sj_train_labels.cor, file = "sj_train_labels.cor.csv")
+# write.csv(iq_train_labels.cor, file = "iq_train_labels.cor.csv")
+```
+
+#Addressing missing values
+
+##Missing values:  Remove all rows with an NA in it & merge to make a dataframe with both city dataframes in it.
+```{r na omit, echo=TRUE}
+sj_train_labels.naomit <- na.omit(sj_train_labels)
+iq_train_labels.naomit <- na.omit(iq_train_labels)
+
+df_train_labels.naomit <- rbind(sj_train_labels.naomit,iq_train_labels.naomit)
+
+```
+
+##Missing values: Using last non-NA value and rbind the two city dataframes
+```{r last non-NA, echo=FALSE, results= "hide", message=FALSE}
+library(zoo)
+#library(tidyverse)
+library(plyr)
+sj_train_labels <- sj_train_labels[order(sj_train_labels$year, sj_train_labels$weekofyear),]
+iq_train_labels <- iq_train_labels[order(iq_train_labels$year, iq_train_labels$weekofyear),]
+
+sj_train_labels.lastna <- sj_train_labels 
+iq_train_labels.lastna <-iq_train_labels 
+
+sj_train_labels.lastna <- colwise(na.locf)(sj_train_labels.lastna)
+iq_train_labels.lastna <- colwise(na.locf)(iq_train_labels.lastna)
+
+#Issues using tidyverse as the locf function converts all values to character
+# sj_train_labels.lastna <- sj_train_labels.lastna %>% do(na.locf(.))
+# iq_train_labels.lastna <-iq_train_labels.lastna %>% do(na.locf(.))
+
+df_train_labels.lastna <- rbind(sj_train_labels.lastna,iq_train_labels.lastna)
+
+sum(is.na(sj_train_labels.lastna))
+sum(is.na(iq_train_labels.lastna))
+sum(is.na(df_train_labels.lastna))
+
+
+
+
+```
+
+#Comparison of correlations with the other non-na dataframes  
+
+##Correlation with na.omit
+```{r corr na.omit, echo=TRUE}
+library(corrplot)
+df_train_labels.cor.naomit <-data.frame(round(cor(df_train_labels.naomit[,5:25],
+                                           use = "complete.obs"),2))
+View(df_train_labels.cor.naomit)         
+
+corrplot(as.matrix(df_train_labels.cor.naomit), 
+         method = "number",
+         type = "upper")
+
+sj_train_labels.cor.naomit <-data.frame(round(cor(sj_train_labels.naomit[,5:25],
+                                           use = "complete.obs"),2))
+View(sj_train_labels.cor.naomit)         
+
+corrplot(as.matrix(sj_train_labels.cor.naomit), 
+         method = "number",
+         type = "upper")
+
+
+iq_train_labels.cor.naomit <-data.frame(round(cor(iq_train_labels.naomit[,5:25],
+                                           use = "complete.obs"),2))
+View(iq_train_labels.cor.naomit)         
+
+corrplot(as.matrix(iq_train_labels.cor.naomit), 
+         method = "number",
+         type = "upper")
+
+rm(df_train_labels.cor)
+rm(sj_train_labels.cor)
+rm(iq_train_labels.cor)
+
+```
+
+##Correlation with ImputeTS
+
+
+
+##Correlation with Last NA
+```{r corr last na, echo=TRUE}
+library(corrplot)
+df_train_labels.cor.lastna <-data.frame(round(cor(df_train_labels.lastna[,5:25],
+                                           use = "complete.obs"),2))
+View(df_train_labels.cor.lastna)         
+
+corrplot(as.matrix(df_train_labels.cor.lastna), 
+         method = "number",
+         type = "upper")
+
+sj_train_labels.cor.lastna <-data.frame(round(cor(sj_train_labels.lastna[,5:25],
+                                           use = "complete.obs"),2))
+View(sj_train_labels.cor.lastna)         
+
+corrplot(as.matrix(sj_train_labels.cor.lastna), 
+         method = "number",
+         type = "upper")
+
+iq_train_labels.cor.lastna <-data.frame(round(cor(iq_train_labels.lastna[,5:25],
+                                           use = "complete.obs"),2))
+View(iq_train_labels.cor.lastna)         
+
+corrplot(as.matrix(iq_train_labels.cor.lastna), 
+         type = "upper", 
+         tl.pos = "td",
+         method = "number", 
+         tl.cex = 0.75, 
+         tl.col = 'black',
+         order = "hclust",
+         number.cex= 7/ncol(iq_train_labels.lastna),
+         diag = FALSE)
+
+```
+
+###Export non-na correlation to CSV
+```{r export corr no na, echo=TRUE}
+write.csv(df_train_labels.cor.naomit, file = "df_train_labels.cor.naomit.csv")
+write.csv(sj_train_labels.cor.naomit, file = "sj_train_labels.cor.naomit.csv")
+write.csv(iq_train_labels.cor.naomit, file = "iq_train_labels.cor.naomit.csv")
+
+write.csv(df_train_labels.cor.lastna, file = "df_train_labels.cor.lastna.csv")
+write.csv(sj_train_labels.cor.lastna, file = "sj_train_labels.cor.lastna.csv")
+write.csv(iq_train_labels.cor.lastna, file = "iq_train_labels.cor.lastna.csv")
+
+```
+
+##Conclusion about correlation
+
+Different methods of imputing missing values had no impact on correlation.  Will stick with last.na as the final version.
+
+#Feature Selection and Dimensionality Reduction
+
+##Feature Selection
+
+We will use various methods to see if we can find any features that need to be eliminated
+
+##Feature selection via CaretR (Remove redundant features)
+```{r Caret_Redundant Features, echo=TRUE}
+library(mlbench)
+library(caret)
+# calculate correlation matrix
+CorrelationMatrix <- cor(df_train_labels.lastna[,5:25])
+# find attributes that are highly corrected (ideally >0.75)
+highlyCorrelated <- findCorrelation(CorrelationMatrix, cutoff=0.75)
+# print indexes of highly correlated attributes
+print(highlyCorrelated)
+cnames <- colnames(df_train_labels[,5:25])
+for (i in list(highlyCorrelated)){
+  print(cnames[i])
+}
+
+```
+
+##Feature selection via CaretR (via RFE)
+```{r Caret_RFE, echo=TRUE}
+library(mlbench)
+library(caret)
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+# run the RFE algorithm for SJ
+sj_rfe_results <- rfe(sj_train_labels.lastna[,5:24], sj_train_labels.lastna[,25], sizes=c(5:25), rfeControl=control)
+# summarize the results
+print(sj_rfe_results)
+# list the chosen features
+predictors(sj_rfe_results)
+# plot the results
+plot(sj_rfe_results, type=c("g", "o"), main = "RFE plot for SJ")
+
+# run the RFE algorithm for IQ
+iq_rfe_results <- rfe(iq_train_labels.lastna[,5:24], iq_train_labels.lastna[,25], sizes=c(5:25), rfeControl=control)
+# summarize the results
+print(iq_rfe_results)
+# list the chosen features
+predictors(iq_rfe_results)
+# plot the results
+plot(iq_rfe_results, type=c("g", "o"), main = "RFE plot for IQ")
+```
+
+##Feature selection for SJ via Boruta
+```{r SJ Boruta, echo=TRUE}
+library(Boruta)
+sj_train_labels.boruta <- Boruta(sj_train_labels.lastna$total_cases~., data = sj_train_labels.lastna[,5:25], doTrace = 2)
+print(sj_train_labels.boruta)
+
+#Fix and tentative attributes
+sj_train_labels.boruta  <- TentativeRoughFix(sj_train_labels.boruta)
+print(sj_train_labels.boruta)
+
+#Boruta plot for SJ
+plot(sj_train_labels.boruta, xlab = "", xaxt = "n")
+lz<-lapply(1:ncol(sj_train_labels.boruta$ImpHistory),function(i)
+sj_train_labels.boruta$ImpHistory[is.finite(sj_train_labels.boruta$ImpHistory[,i]),i])
+names(lz) <- colnames(sj_train_labels.boruta$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels),
+at = 1:ncol(sj_train_labels.boruta$ImpHistory), cex.axis = 0.7)
+```
+
+##Feature selection for IQ via Boruta
+```{r IQ Boruta, echo=TRUE}
+library(Boruta)
+iq_train_labels.boruta <- Boruta(iq_train_labels.lastna$total_cases~., data = iq_train_labels.lastna[,5:25], doTrace = 2)
+print(iq_train_labels.boruta)
+
+#Fix and tentative attributes
+iq_train_labels.boruta  <- TentativeRoughFix(iq_train_labels.boruta)
+print(iq_train_labels.boruta)
+
+#Boruta plot for IQ
+
+plot(iq_train_labels.boruta, xlab = "", xaxt = "n")
+lz<-lapply(1:ncol(iq_train_labels.boruta$ImpHistory),function(i)
+iq_train_labels.boruta$ImpHistory[is.finite(iq_train_labels.boruta$ImpHistory[,i]),i])
+names(lz) <- colnames(iq_train_labels.boruta$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels),
+at = 1:ncol(iq_train_labels.boruta$ImpHistory), cex.axis = 0.7)
+```
+
+##Drop columns for IQ from Boruta selection
+
+Boruta feature selection kept all the variables for SJ but only 13 for IQ.  We need to drop the variables for IQ.
+
+```{r drop columns, echo=TRUE}
+
+iq.boruta.attributes <- getSelectedAttributes(iq_train_labels.boruta, withTentative = F)
+
+iq.boruta.attributes <- c("city", "year", "weekofyear", iq.boruta.attributes)
+
+iq_train_labels.attrfinal <- iq_train_labels.lastna[ , iq.boruta.attributes, drop = FALSE]
+```
+
+#Predictive models
+
+The following predictive models will reivew the Root Square Mean Error by each city.  This is done without feature selection and with missing values imputed as the last non-na values.
+
+##Baseline model for SJ
+The baseline model shifts the total_cases down by one so that the values fall down to the next week.  The difference between the orignal and the shifted values are taken and the RMSE is used as the metric to measure performance.
+
+```{r baseline for sj, echo}
+#create a new data frame from the lastna dataframe
+sj_train_labels.shift <- sj_train_labels.lastna
+
+#Make a copy of the total_cases variable
+sj_train_labels.shift$total_cases2 <- sj_train_labels.shift$total_cases
+
+#shift the values down by one
+sj_train_labels.shift['total_cases2'] <- c(NA, head(sj_train_labels.shift['total_cases2'], dim(sj_train_labels.shift)[1] - 1)[[1]])
+
+#replace the first NA with zero
+sj_train_labels.shift$total_cases2[1] <- 0
+
+#take the difference between total_cases and total_cases2
+sj_train_labels.shift$diff <- sj_train_labels.shift$total_cases2 - sj_train_labels.shift$total_cases
+```
+
+##Baseline model for IQ
+The baseline model shifts the total_cases down by one so that the values fall down to the next week.  The difference between the orignal and the shifted values are taken and the RMSE is used as the metric to measure performance.
+
+```{r baseline for iq}
+#create a new data frame from the lastna dataframe
+iq_train_labels.shift <- iq_train_labels.lastna
+
+#Make a copy of the total_cases variable
+iq_train_labels.shift$total_cases2 <- iq_train_labels.shift$total_cases
+
+#shift the values down by one
+iq_train_labels.shift['total_cases2'] <- c(NA, head(iq_train_labels.shift['total_cases2'], dim(iq_train_labels.shift)[1] - 1)[[1]])
+
+#replace the first NA with zero
+iq_train_labels.shift$total_cases2[1] <- 0
+
+#take the difference between total_cases and total_cases2
+iq_train_labels.shift$diff <- iq_train_labels.shift$total_cases2 - iq_train_labels.shift$total_cases
+
+```
+
+
+##Negative binomial regression (NBR)
+### NBR for SJ
+```{r NBR for SJ, echo=TRUE}
+library(MASS)
+library(reshape2)
+library(ggplot2)
+
+#determine the dispersion of the total_cases
+
+round(with(df_train_labels, tapply(total_cases, city, mean)),2)
+round(with(df_train_labels, tapply(total_cases, city, var)),2)
+
+#As there is over-dispersion of total_cases (variance is greater than the mean) we can go ahead and build the NBR model 
+
+model_sj.nbr <- glm.nb(formula = total_cases ~ ., data = sj_train_labels.lastna[,5:25])
+
+summary(model_sj.nbr)
+
+prediction_sj.nbr <-  predict(model_sj.nbr, sj_train_labels.lastna[,5:25], type = 'response')
+
+#Plot the prediction for NBR
+df_prediction_sj.nbr <- data.frame('prediction' = prediction_sj.nbr,
+                                   'actual' = sj_train_labels.lastna$total_cases,
+                                   'time' = sj_train_labels.lastna$week_start_date)
+
+df_prediction_sj.nbr <- melt(df_prediction_sj.nbr, id.vars = 'time')
+
+ggplot(df_prediction_sj.nbr, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('NBR: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
+
+```
+
+### NBR for IQ
+```{r NBR for IQ, echo=TRUE}
+library(MASS)
+library(reshape2)
+library(ggplot2)
+
+model_iq.nbr <- glm.nb(formula = total_cases ~ ., data = iq_train_labels.lastna[,5:25])
+
+prediction_iq.nbr <-  predict(model_iq.nbr, iq_train_labels.lastna[,5:25], type = 'response')
+
+#Plot the prediction for NBR
+df_prediction_iq.nbr <- data.frame('prediction' = prediction_iq.nbr,
+                                   'actual' = iq_train_labels.lastna$total_cases,
+                                   'time' = iq_train_labels.lastna$week_start_date)
+
+df_prediction_iq.nbr <- melt(df_prediction_iq.nbr, id.vars = 'time')
+
+ggplot(df_prediction_iq.nbr, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('NBR Dengue predicted Cases vs. Actual Cases (City-Iquitos) ')
+```
+
+##Support vector machine for SJ
+```{r SVM for SJ, echo=TRUE}
+library(e1071)
+library(reshape2)
+library(ggplot2)
+
+#Fit a model
+ 
+model_sj.svm <- svm(sj_train_labels.lastna$total_cases ~ . , sj_train_labels.lastna[,5:25])
+ 
+#Use the predictions on the data
+ 
+prediction_sj.svm <-  predict(model_sj.svm, sj_train_labels.lastna[,5:25], type = 'response')
+
+#Plot the prediction for svm
+df_prediction_sj.svm <- data.frame('prediction' = prediction_sj.svm,
+                                   'actual' = sj_train_labels.lastna$total_cases,
+                                   'time' = sj_train_labels.lastna$week_start_date)
+
+df_prediction_sj.svm <- melt(df_prediction_sj.svm, id.vars = 'time')
+
+ggplot(df_prediction_sj.svm, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('SVM: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
+
+```
+
+##Support vector machine for IQ
+```{r SVM for IQ, echo=TRUE}
+library(e1071)
+library(reshape2)
+library(ggplot2)
+
+model_iq.svm <- svm(iq_train_labels.lastna$total_cases ~ . , iq_train_labels.lastna[,5:25])
+ 
+#Use the predictions on the data
+ 
+prediction_iq.svm <-  predict(model_iq.svm, iq_train_labels.lastna[,5:25], type = 'response')
+
+#Plot the prediction for svm
+df_prediction_iq.svm <- data.frame('prediction' = prediction_iq.svm,
+                                   'actual' = iq_train_labels.lastna$total_cases,
+                                   'time' = iq_train_labels.lastna$week_start_date)
+
+df_prediction_iq.svm <- melt(df_prediction_iq.svm, id.vars = 'time')
+
+ggplot(df_prediction_iq.svm, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('SVM: Dengue predicted Cases vs. Actual Cases (City-Iquitos) ')
+
+```
+
+##Random Forest for SJ 
+```{r random forest for SJ, echo=TRUE}
+library(randomForest)
+library(reshape2)
+library(ggplot2)
+
+#Fit a model
+ 
+model_sj.rf <- randomForest(sj_train_labels.lastna$total_cases ~ . , sj_train_labels.lastna[,5:25], importance = TRUE)
+ 
+#Find the importance of the RF model
+varimp <- importance(model_sj.rf)[sort.list(importance(model_sj.rf)[,2],decreasing = T),]
+
+#graph the importance
+varImpPlot(model_sj.rf, type = 1)
+varImpPlot(model_sj.rf, type = 2)
+
+#Use the predictions on the data
+ 
+prediction_sj.rf <-  predict(model_sj.rf, sj_train_labels.lastna[,5:25], type = 'response')
+
+#Plot the prediction for rf
+df_prediction_sj.rf <- data.frame('prediction' = prediction_sj.rf,
+                                   'actual' = sj_train_labels.lastna$total_cases,
+                                   'time' = sj_train_labels.lastna$week_start_date)
+
+df_prediction_sj.rf <- melt(df_prediction_sj.rf, id.vars = 'time')
+
+ggplot(df_prediction_sj.rf, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('RF: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
+
+```
+
+##Random Forest for IQ 
+```{r random forest for IQ, echo=TRUE}
+library(randomForest)
+library(reshape2)
+library(ggplot2)
+
+#Fit a model
+ 
+model_iq.rf <- randomForest(iq_train_labels.lastna$total_cases ~ . , iq_train_labels.lastna[,5:25], importance = TRUE)
+ 
+#Use the predictions on the data
+ 
+prediction_iq.rf <-  predict(model_iq.rf, iq_train_labels.lastna[,5:25], type = 'response')
+
+#Plot the prediction for rf
+df_prediction_iq.rf <- data.frame('prediction' = prediction_iq.rf,
+                                   'actual' = iq_train_labels.lastna$total_cases,
+                                   'time' = iq_train_labels.lastna$week_start_date)
+
+df_prediction_iq.rf <- melt(df_prediction_iq.rf, id.vars = 'time')
+
+ggplot(df_prediction_iq.rf, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('RF: Dengue predicted Cases vs. Actual Cases (City-Iquitos) ')
+
+```
+
+##Multi Layer Perceptron for SJ
+```{r mlp for SJ, echo=TRUE}
+# library(RSNNS)
+# library(reshape2)
+# library(ggplot2)
+
+# Build your own `normalize()` function
+# normalize <- function(x) {
+#   num <- x - min(x)
+#   denom <- max(x) - min(x)
+#   return (num/denom)
+# }
+# 
+# # Normalize the `iris` data
+# iris_norm <- as.data.frame(lapply(iris[1:4], normalize))
+# 
+# # Return the first part of `iris` 
+# head(iris)
+
+#Tip use the hist() function in the R console to to study the distribution of the Iris data before (iris) and after the normalization (iris_norm). 
+
+#To use the normalize() function from the keras package, you first need to make sure that you're working with a matrix. As you probably remember from earlier, the characteristic of matrices is that the matrix data elements are of the same basic type; In this case, you have target values that are of type factor, while the rest is all numeric.
+
+
+# iris[,5] <- as.numeric(iris[,5]) -1
+# 
+# # Turn `iris` into a matrix
+# iris <- as.matrix(iris)
+# 
+# # Set iris `dimnames` to `NULL`
+# dimnames(iris) <- NULL
+# 
+# # Normalize the `iris` data
+# iris <- normalize(iris[,1:4])
+# 
+# # Return the summary of `iris`
+# summary(iris)
+
+
+```
+
+##Multi Layer Perceptron for IQ
+```{r mlp for IQ, echo=TRUE}
+
+
+```
+
+##Root Mean Square Error for Predictive Models
+```{r rmse, echo=TRUE}
+
+fct.rmse <- function(total_cases, pred_model){
+  error <- total_cases - pred_model
+  rms.error <- sqrt(mean(error^2))
+  return(round(rms.error,2))
+}
+
+print("RMSE for SJ")
+print("Baseline")
+sqrt(mean(sj_train_labels.shift$diff^2))
+print("Negative Binomial Regression")
+fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.nbr)
+print("SVM")
+fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.svm)
+print("Random Forest")
+fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.rf)
+
+print("RMSE for IQ")
+print("Baseline")
+sqrt(mean(iq_train_labels.shift$diff^2))
+print("Negative Binomial Regression")
+fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.nbr)
+print("SVM")
+fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.svm)
+print("Random Forest")
+fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.rf)
+
+
+
+```
+
+#Time Series Analysis
+```{r ts, echo=TRUE}
+ts_sj <- ts(sj_train_labels.lastna$total_cases, start = c(min(sj_train_labels.lastna$year),min(sj_train_labels.lastna$weekofyear[sj_train_labels.lastna$year == min(sj_train_labels.lastna$year)])), frequency = 52)
+
+plot((ts_sj) , main = 'SJ: Total_cases')
+
+plot(decompose(ts_sj))
+
+
+
+```
+
+##Holt-Winters filtering
+```{r Holt-Winters filtering, echo=TRUE}
+
+fit1 <- HoltWinters(ts_sj)
+fit2<- HoltWinters(ts_sj, beta = FALSE, gamma = FALSE)
+par(mfrow=c(2,1))
+plot(fit1)
+plot(fit2)
+
+```
+
+#Mutual Information for a Peak Prediction Model 
+This analysis looks at the mutual information for a peak prediction model.  Five peaks will be used 
+
+###Determine the highest total_cases per week in a year
+```{r peak prediction model, echo= TRUE}
+
+
+#calculate the max value by year and sort by highest cases
+max_cases.year <-sort(tapply(sj_train_labels.lastna$total_cases, sj_train_labels.lastna$year, max), decreasing = TRUE)
+
+max_cases.year
+
+#Determine which weeks are associated to which max year values
+dname <- dimnames(max_cases.year)
+
+for (i in 1:6) {
+  max_cases.week <-
+    sort(tapply(sj_train_labels.lastna$total_cases[sj_train_labels.lastna$year == as.numeric(dname[[1]][i])], sj_train_labels.lastna$weekofyear[sj_train_labels.lastna$year == as.numeric(dname[[1]][i])], max), decreasing = TRUE)
+
+print(dname[[1]][i])
+print(max_cases.week[1:15])
+}
+
+```
+
+###Create dataframe with peaks only
+Five peaks will be isolated from each city with 5 weeks around each side of the max yearly value.  A new dataframe will be made for use in mutual information and then for prediction.
+```{r df for peaks, echo=TRUE}
+
+sj.peak.1994 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1994 & sj_train_labels.lastna$weekofyear <= 46 & sj_train_labels.lastna$weekofyear >= 36 ,]
+
+sj.peak.1998 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1998 & sj_train_labels.lastna$weekofyear <= 47 & sj_train_labels.lastna$weekofyear >= 37 ,]
+
+sj.peak.2007 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2007 & sj_train_labels.lastna$weekofyear <= 45 & sj_train_labels.lastna$weekofyear >= 35 ,]
+
+sj.peak.1991 <- rbind(sj_train_labels.lastna[sj_train_labels.lastna$year == 1991 & sj_train_labels.lastna$weekofyear <= 52 & sj_train_labels.lastna$weekofyear >= 43 ,],
+                      sj_train_labels.lastna[sj_train_labels.lastna$year == 1992 & sj_train_labels.lastna$weekofyear == 1 ,] )
+
+sj.peak.2005 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2005 & sj_train_labels.lastna$weekofyear <= 40 & sj_train_labels.lastna$weekofyear >= 30 ,]
+
+sj.peak <-rbind(sj.peak.1991,sj.peak.1994,sj.peak.1998,sj.peak.2005,sj.peak.2007)
+
+rm(sj.peak.1991,sj.peak.1994,sj.peak.1998,sj.peak.2005,sj.peak.2007)
+
+
+```
+
+###Create dataframe with non-peaks
+```{r df for non-peaks, echo=TRUE}
+
+sj.nonpeak.1997 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1997 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.2001 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2001 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.2003 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2003 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.1993 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1993 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.1996 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1996 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak <-rbind(sj.nonpeak.1997,
+                   sj.nonpeak.2001,
+                   sj.nonpeak.2003,
+                   sj.nonpeak.1993,
+                   sj.nonpeak.1996)
+
+rm(sj.nonpeak.1997,sj.nonpeak.2001,sj.nonpeak.2003,sj.nonpeak.1993,sj.nonpeak.1996)
+
+```
+###Determine mutual info for the new df with peaks
+```{r mutual info peaks, echo=TRUE}
+library(entropy)
+library(infotheo)
+
+cnames <- colnames(sj.peak)
+for (i in 5:(ncol(sj.peak)-1)) {
+  disc1 <- discretize(sj.peak$total_cases)
+  disc2 <- discretize(sj.peak[,i])
+  print(cnames[i])
+  print(mutinformation(disc1, disc2))
+}
+```
+###Determine mutual info for the new df with nonpeaks
+```{r mutual info nonpeaks, echo=TRUE}
+library(entropy)
+library(infotheo)
+
+cnames <- colnames(sj.nonpeak)
+for (i in 5:(ncol(sj.nonpeak)-1)) {
+  disc1 <- discretize(sj.nonpeak$total_cases)
+  disc2 <- discretize(sj.nonpeak[,i])
+  print(cnames[i])
+  print(mutinformation(disc1, disc2))
+}
+```
+#Build and test a linear regression model for the peaks 
+```{r peak lm}
+set.seed(136)
+
+#randomly sample 20% of the training set for SJ
+sj_peak.sample <- sample(1:nrow(sj.peak), size=0.8*nrow(sj.peak))
+
+#build a new training a dev set
+sj_peak.train <- sj.peak[sj_peak.sample,]
+sj_peak.dev <- sj.peak[-sj_peak.sample,]
+
+#create a linear regression model
+sj_peak.lm <- lm(sj_peak.train$total_cases ~ . , sj_peak.train[,5:25])
+
+#predict the lm model to the dev model
+sj_peak.predict <- predict(sj_peak.lm, sj_peak.dev)
+
+#determine RMSE from prediction model
+fct.rmse <- function(total_cases, pred_model){
+  error <- total_cases - pred_model
+  rms.error <- sqrt(mean(error^2))
+  return(round(rms.error,2))
+}
+
+fct.rmse(sj_peak.dev$total_cases, sj_peak.predict)
+
+```
+
+
+
+
+
+
+
+
+
