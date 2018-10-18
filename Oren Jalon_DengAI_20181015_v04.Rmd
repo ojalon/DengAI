@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # library(pastecs)
 ```
 
-#Preliminary Data Preparation
+#PRELIMINARY DATA PREPARATION
 
 This section includes importing the data, creating of new variables and establishing the dataframes for the initial analysis
 
@@ -332,8 +332,10 @@ for (i in 9:(ncol(df_train_labels)-1)) {
 We can see that the same feature is significantly different in each city 
 
 ```{r means between cities, echo = TRUE}
+cnames <- colnames(sj_train_labels)
 for (i in 5:(ncol(dengue_features_train))){
   wilt <- wilcox.test(sj_train_labels[,i],iq_train_labels[,i])  
+  print(cnames[i])
   print(wilt)
 }
 
@@ -499,8 +501,9 @@ ggplot(df_train_labels, aes(x=city, y = total_cases, fill = city)) +
        x = "City", y = "Total_cases")
 ```
 
+#MISSING VALUES
 
-#Missing Values
+#Check for missing values (is.na)
 
 In this section, we look at the number of missing values.  Later we will do something about these missing values.
 
@@ -531,7 +534,7 @@ rm(df_train_labels.na)
 ```
 
 
-#MISSING VALUES
+
 
 ##Missing values:  Remove all rows with an NA in it 
 ```{r na omit, echo=TRUE}
@@ -878,7 +881,7 @@ summary(fit_glm)
 
 ```
 
-#REDICTIVE MODELS
+#PREDICTIVE MODELS
 
 The following predictive models will reivew the Root Square Mean Error by each city.  This is done without feature selection and with missing values imputed as the last non-na values.
 
@@ -1115,6 +1118,7 @@ ggplot(df_prediction_iq.rf, aes(x = time, y = value, color = variable)) +
 
 ```
 
+#EVALUATION OF PREDDICTIVE MODELS
 ##Mean Absolute Error for Predictive Models
 ```{r MAE, echo=TRUE}
 
@@ -1148,7 +1152,7 @@ fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.rf)
 
 ```
 
-#Time Series Analysis
+#TIME SERIES ANALYSIS
 ```{r ts, echo=TRUE}
 ts_sj <- ts(sj_train_labels.lastna$total_cases, start = c(min(sj_train_labels.lastna$year),min(sj_train_labels.lastna$weekofyear[sj_train_labels.lastna$year == min(sj_train_labels.lastna$year)])), frequency = 52)
 
