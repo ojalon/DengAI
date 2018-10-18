@@ -46,17 +46,54 @@ dengue_features_train$week_start_date <- as.Date(dengue_features_train$week_star
 dengue_features_test$city <- as.factor(dengue_features_test$city)
 dengue_features_train$city <- as.factor(dengue_features_train$city)
 ```
+
+###Rescale the variables so that it is all in Celcius and mm
+```{r rescaling, echo=TRUE}
+dengue_features_train$reanalysis_dew_point_temp_k <- dengue_features_train$reanalysis_dew_point_temp_k - 273.15
+dengue_features_test$reanalysis_dew_point_temp_k <- dengue_features_test$reanalysis_dew_point_temp_k - 273.15
+
+dengue_features_train$reanalysis_air_temp_k <- dengue_features_train$reanalysis_air_temp_k - 273.15
+dengue_features_test$reanalysis_air_temp_k <- dengue_features_test$reanalysis_air_temp_k - 273.15
+
+dengue_features_train$reanalysis_max_air_temp_k <- dengue_features_train$reanalysis_max_air_temp_k - 273.15
+dengue_features_test$reanalysis_max_air_temp_k <- dengue_features_test$reanalysis_max_air_temp_k - 273.15
+
+dengue_features_train$reanalysis_min_air_temp_k <- dengue_features_train$reanalysis_min_air_temp_k - 273.15
+dengue_features_test$reanalysis_min_air_temp_k <- dengue_features_test$reanalysis_min_air_temp_k - 273.15
+
+dengue_features_train$reanalysis_avg_temp_k <- dengue_features_train$reanalysis_avg_temp_k - 273.15
+dengue_features_test$reanalysis_avg_temp_k <- dengue_features_test$reanalysis_avg_temp_k - 273.15
+
+#!!!tdtr does not appear to be in Kelvin
+# dengue_features_train$reanalysis_tdtr_k <- dengue_features_train$reanalysis_tdtr_k - 273.15
+# dengue_features_test$reanalysis_tdtr_k <- dengue_features_test$reanalysis_tdtr_k - 273.15
+
+summary(dengue_features_train$reanalysis_dew_point_temp_k)
+summary(dengue_features_train$reanalysis_air_temp_k)
+summary(dengue_features_train$reanalysis_max_air_temp_k)
+summary(dengue_features_train$reanalysis_min_air_temp_k)
+summary(dengue_features_train$reanalysis_avg_temp_k)
+summary(dengue_features_train$reanalysis_tdtr_k)
+```
+
+
 ###Merge test and train set without the total_cases
 ```{r full, echo=TRUE}
 df <- rbind(dengue_features_train,dengue_features_test)
-
 ```
 ###Divide the test and training sets into sj and iq separately
-```{r sj & iq, echo=TRUE}
+```{r sj & iq test, echo=TRUE}
 iq_features_test <- dengue_features_test[dengue_features_test$city == 'iq', ]
 sj_features_test <- dengue_features_test[dengue_features_test$city == 'sj', ]
+```
+
+###Divide training sets into sj and iq separately
+```{r sj & iq train, echo=TRUE}
 iq_features_train <- dengue_features_train[dengue_features_train$city == 'iq', ]
 sj_features_train <- dengue_features_train[dengue_features_train$city == 'sj', ]
+```
+###Divide the labels sets into sj and iq separately
+```{r sj & iq, echo=TRUE}
 iq_labels_train <- dengue_labels_train[dengue_labels_train$city == 'iq', ]
 sj_labels_train <- dengue_labels_train[dengue_labels_train$city == 'sj', ]
 ```
@@ -80,7 +117,7 @@ sj_train_labels <- merge(sj_features_train, sj_labels_train, by=c("city","year",
 iq_train_labels <- merge(iq_features_train, iq_labels_train, by=c("city","year","weekofyear"))
 ```
 
-#Initial Analysis
+#INITIAL & EXPLORATORY ANALYSIS
 
 In this section, we summary the value of the data frames (together and by city).  We also create the following graphs
 
@@ -189,17 +226,6 @@ for (i in 9:(ncol(sj))) {
       main = paste("Time Analysis for SJ", cnames[i], sep = ": "))
  lines(sj$week_start_date,sj[,i])
 }
-
-#ATTEMPTED GGPLOT - COULDN'T LABEL Y AXIS SO BAILED
-# library(ggplot2)
-# for (i in 9:ncol(sj)) {
-# sj.lineplot <- ggplot(data = sj, aes(x = week_start_date, y = sj[,i])) +
-#   geom_line(stat = "identity", fill = "blue") 
-#   labs(title = colnames(sj[,i]),
-#        subtitle = "DATE RANGE HERE",
-#        x = "Date", y =cnames[i])
-# print(sj.lineplot)
-#}
 ```
 
 ###GRAPH: Climate variables by time for **IQ**
@@ -314,11 +340,141 @@ for (i in 5:(ncol(dengue_features_train))){
 
 ```
 
+##Compare similar variable values within the dataset
+There are several variables which appear to be the same feature but taken from a different source.  For example, station_precip_mm and	precipitation_amt_mm and reanalysis_sat_precip_amt_mm all appear to be the same "Total Precipitation value"  Only one should be kept if they are the same.
 
-#Analysis of Outliers
+###Difference in max air temp
+"station_max_temp_c"" and "reanalysis_max_air_temp_k" (scaled to Celcius)
+```{r max air, echo= TRUE}
+library(ggplot2)
 
+#generate a difference in max temp variable
+sj_train_labels$max_air_diff <- sj_train_labels$station_max_temp_c - sj_train_labels$reanalysis_max_air_temp_k
+
+#barplot the difference by year
+ggplot(sj_train_labels,aes(x=year, y=max_air_diff))+
+  geom_bar(stat='identity')
+
+#box plot difference by year
+ggplot(sj_train_labels, aes(x=year, y = max_air_diff, group = year)) +   geom_boxplot() 
+
+#Add month to the dataframe
+sj_train_labels$month <- as.POSIXlt(sj_train_labels$week_start_date)$mon +1
+
+#box plot difference by month
+ggplot(sj_train_labels, aes(x=month, y = max_air_diff, group = month)) +   geom_boxplot() + scale_x_continuous(breaks=seq(1,12,1))
+
+sj_train_labels$max_air_diff <- NULL
+sj_train_labels$month <- NULL
+```
+
+###Difference in min air temp
+"station_min_temp_c"" and "reanalysis_min_air_temp_k" (scaled to Celcius)
+```{r min air, echo= TRUE}
+library(ggplot2)
+
+#generate a difference in max temp variable
+sj_train_labels$min_air_diff <- sj_train_labels$station_min_temp_c - sj_train_labels$reanalysis_min_air_temp_k
+
+#barplot the difference by year
+ggplot(sj_train_labels,aes(x=year, y=min_air_diff))+
+  geom_bar(stat='identity')
+
+#box plot difference by year
+ggplot(sj_train_labels, aes(x=year, y = min_air_diff, group = year)) +   geom_boxplot() 
+
+#Add month to the dataframe
+sj_train_labels$month <- as.POSIXlt(sj_train_labels$week_start_date)$mon +1
+
+#box plot difference by month
+ggplot(sj_train_labels, aes(x=month, y = min_air_diff, group = month)) +   geom_boxplot() + scale_x_continuous(breaks=seq(1,12,1))
+
+sj_train_labels$min_air_diff <- NULL
+sj_train_labels$month <- NULL
+```
+
+###Difference in average air temp
+"station_avg_temp_c"" and "reanalysis_avg_temp_k" (scaled to Celcius)
+```{r avg air, echo= TRUE}
+library(ggplot2)
+
+#generate a difference in max temp variable
+sj_train_labels$avg_air_diff <- sj_train_labels$station_avg_temp_c - sj_train_labels$reanalysis_avg_temp_k
+
+#barplot the difference by year
+ggplot(sj_train_labels,aes(x=year, y=avg_air_diff))+
+  geom_bar(stat='identity')
+
+#box plot difference by year
+ggplot(sj_train_labels, aes(x=year, y = avg_air_diff, group = year)) +   geom_boxplot() 
+
+#Add month to the dataframe
+sj_train_labels$month <- as.POSIXlt(sj_train_labels$week_start_date)$mon +1
+
+#box plot difference by month
+ggplot(sj_train_labels, aes(x=month, y = avg_air_diff, group = month)) +   geom_boxplot() + scale_x_continuous(breaks=seq(1,12,1))
+
+sj_train_labels$avg_air_diff <- NULL
+sj_train_labels$month <- NULL
+```
+
+###Difference in total precipitation
+"station_precip_mm", "precipitation_amt_mm", "reanalysis_sat_precip_amt_mm", "reanalysis_precip_amt_kg_per_m2" 
+
+```{r total precip, echo= TRUE}
+library(ggplot2)
+
+precip <- c("station_precip_mm", "precipitation_amt_mm", "reanalysis_sat_precip_amt_mm", "reanalysis_precip_amt_kg_per_m2")
+
+#Add month to the dataframe
+sj_train_labels$month <- as.POSIXlt(sj_train_labels$week_start_date)$mon +1
+
+
+
+for (i in 1:3){
+  par(mfrow=c(1,3))
+  #generate the first variable in the list
+  p1 <- precip[i]
+  ind1 <- which(colnames(sj_train_labels)==p1)
+  for (j in ((i+1):4)){
+    #generate the next variable in the list
+    p2 <- precip[j]
+  ind2 <- which(colnames(sj_train_labels)==p2)
+  #generate a difference variable 
+   sj_train_labels$diff <- sj_train_labels[,ind1] - sj_train_labels[,ind2]
+   
+   #barplot the difference by year
+   gg1 <-ggplot(sj_train_labels,
+                 aes(x=year, y=diff))+
+      geom_bar(stat = "identity", fill="steelblue") + 
+      ggtitle(paste(p1, "&", p2))
+    print(gg1)
+    
+    #box plot the difference by year
+   gg2 <-ggplot(sj_train_labels,
+                 aes(x=year, y=diff, group = year)) +
+      geom_boxplot() + 
+      ggtitle(paste(p1, "&", p2))
+    print(gg2)
+    
+    #box plot difference by month
+    gg3 <- ggplot(sj_train_labels, 
+                  aes(x=month, y = diff, group = month)) +
+      geom_boxplot() +
+      scale_x_continuous(breaks=seq(1,12,1)) +
+      ggtitle(paste(p1, "&", p2))
+    print(gg3)
+  }
+}
+
+sj_train_labels$diff <- NULL
+sj_train_labels$month <- NULL  
+```
+
+#ANALYSIS OF OUTLIERS
 ###GRAPH: Boxplot of climate variables (test and train)
-Boxplot inlcudes test and training set - NA still included
+Boxplot includes test and training set - NA still included
+
 ```{r graph boxplot, echo=TRUE}
 library(ggplot2)
 cnames <- colnames(df) 
@@ -374,25 +530,49 @@ rm(iq_train.na)
 rm(df_train_labels.na)
 ```
 
-#Correlation Analysis (before missing values are addressed)
+
+#MISSING VALUES
+
+##Missing values:  Remove all rows with an NA in it 
+```{r na omit, echo=TRUE}
+sj_train_labels.naomit <- na.omit(sj_train_labels)
+iq_train_labels.naomit <- na.omit(iq_train_labels)
+
+```
+
+##Missing values: Using last non-NA value and rbind the two city dataframes
+```{r last non-NA, echo=TRUE, results= "hide", message=FALSE}
+library(zoo)
+#library(tidyverse)
+library(plyr)
+sj_train_labels <- sj_train_labels[order(sj_train_labels$year, sj_train_labels$weekofyear),]
+iq_train_labels <- iq_train_labels[order(iq_train_labels$year, iq_train_labels$weekofyear),]
+
+sj_train_labels.lastna <- sj_train_labels 
+iq_train_labels.lastna <-iq_train_labels 
+
+sj_train_labels.lastna <- colwise(na.locf)(sj_train_labels.lastna)
+iq_train_labels.lastna <- colwise(na.locf)(iq_train_labels.lastna)
+
+#Issues using tidyverse as the locf function converts all values to character
+# sj_train_labels.lastna <- sj_train_labels.lastna %>% do(na.locf(.))
+# iq_train_labels.lastna <-iq_train_labels.lastna %>% do(na.locf(.))
+
+sum(is.na(sj_train_labels.lastna))
+sum(is.na(iq_train_labels.lastna))
+
+```
+
+
+#CORRELATION ANALYSIS 
 
 In this section, we look at the correlation between the total_cases and the climate variables.  
 
 First we need to remove any of the non-numeric variables.  The missing values are still in this first correlation analysis but this will be repeated with the missing values included.
 
+##Correlation analysls before missing values are addressed
 ```{r correlation, echo=TRUE}
 library(corrplot)
-#For both cities together 
-df_train_labels.cor <-data.frame(round(cor(df_train_labels[,5:25],use = "complete.obs"),2))
-
-View(df_train_labels.cor)         
-
-corrplot(as.matrix(df_train_labels.cor), 
-         type = 'upper',
-         tl.col = 'black',
-         method = 'shade',
-         title = "Corrplot for both cities")
-
 #Correlation for SJ
 
 sj_train_labels.cor <-data.frame(round(cor(sj_train_labels[,5:25],
@@ -423,59 +603,11 @@ corrplot(as.matrix(iq_train_labels.cor),
 # write.csv(iq_train_labels.cor, file = "iq_train_labels.cor.csv")
 ```
 
-#Addressing missing values
+##Comparison of correlations with the other non-na dataframes  
 
-##Missing values:  Remove all rows with an NA in it & merge to make a dataframe with both city dataframes in it.
-```{r na omit, echo=TRUE}
-sj_train_labels.naomit <- na.omit(sj_train_labels)
-iq_train_labels.naomit <- na.omit(iq_train_labels)
-
-df_train_labels.naomit <- rbind(sj_train_labels.naomit,iq_train_labels.naomit)
-
-```
-
-##Missing values: Using last non-NA value and rbind the two city dataframes
-```{r last non-NA, echo=FALSE, results= "hide", message=FALSE}
-library(zoo)
-#library(tidyverse)
-library(plyr)
-sj_train_labels <- sj_train_labels[order(sj_train_labels$year, sj_train_labels$weekofyear),]
-iq_train_labels <- iq_train_labels[order(iq_train_labels$year, iq_train_labels$weekofyear),]
-
-sj_train_labels.lastna <- sj_train_labels 
-iq_train_labels.lastna <-iq_train_labels 
-
-sj_train_labels.lastna <- colwise(na.locf)(sj_train_labels.lastna)
-iq_train_labels.lastna <- colwise(na.locf)(iq_train_labels.lastna)
-
-#Issues using tidyverse as the locf function converts all values to character
-# sj_train_labels.lastna <- sj_train_labels.lastna %>% do(na.locf(.))
-# iq_train_labels.lastna <-iq_train_labels.lastna %>% do(na.locf(.))
-
-df_train_labels.lastna <- rbind(sj_train_labels.lastna,iq_train_labels.lastna)
-
-sum(is.na(sj_train_labels.lastna))
-sum(is.na(iq_train_labels.lastna))
-sum(is.na(df_train_labels.lastna))
-
-
-
-
-```
-
-#Comparison of correlations with the other non-na dataframes  
-
-##Correlation with na.omit
+###Correlation with na.omit
 ```{r corr na.omit, echo=TRUE}
 library(corrplot)
-df_train_labels.cor.naomit <-data.frame(round(cor(df_train_labels.naomit[,5:25],
-                                           use = "complete.obs"),2))
-View(df_train_labels.cor.naomit)         
-
-corrplot(as.matrix(df_train_labels.cor.naomit), 
-         method = "number",
-         type = "upper")
-
 sj_train_labels.cor.naomit <-data.frame(round(cor(sj_train_labels.naomit[,5:25],
                                            use = "complete.obs"),2))
 View(sj_train_labels.cor.naomit)         
@@ -493,27 +625,14 @@ corrplot(as.matrix(iq_train_labels.cor.naomit),
          method = "number",
          type = "upper")
 
-rm(df_train_labels.cor)
 rm(sj_train_labels.cor)
 rm(iq_train_labels.cor)
 
 ```
 
-##Correlation with ImputeTS
-
-
-
-##Correlation with Last NA
+###Correlation with Last NA
 ```{r corr last na, echo=TRUE}
 library(corrplot)
-df_train_labels.cor.lastna <-data.frame(round(cor(df_train_labels.lastna[,5:25],
-                                           use = "complete.obs"),2))
-View(df_train_labels.cor.lastna)         
-
-corrplot(as.matrix(df_train_labels.cor.lastna), 
-         method = "number",
-         type = "upper")
-
 sj_train_labels.cor.lastna <-data.frame(round(cor(sj_train_labels.lastna[,5:25],
                                            use = "complete.obs"),2))
 View(sj_train_labels.cor.lastna)         
@@ -540,23 +659,21 @@ corrplot(as.matrix(iq_train_labels.cor.lastna),
 
 ###Export non-na correlation to CSV
 ```{r export corr no na, echo=TRUE}
-write.csv(df_train_labels.cor.naomit, file = "df_train_labels.cor.naomit.csv")
-write.csv(sj_train_labels.cor.naomit, file = "sj_train_labels.cor.naomit.csv")
-write.csv(iq_train_labels.cor.naomit, file = "iq_train_labels.cor.naomit.csv")
 
-write.csv(df_train_labels.cor.lastna, file = "df_train_labels.cor.lastna.csv")
-write.csv(sj_train_labels.cor.lastna, file = "sj_train_labels.cor.lastna.csv")
-write.csv(iq_train_labels.cor.lastna, file = "iq_train_labels.cor.lastna.csv")
+# write.csv(sj_train_labels.cor.naomit, file = "sj_train_labels.cor.naomit.csv")
+# write.csv(iq_train_labels.cor.naomit, file = "iq_train_labels.cor.naomit.csv")
+# 
+
+# write.csv(sj_train_labels.cor.lastna, file = "sj_train_labels.cor.lastna.csv")
+# write.csv(iq_train_labels.cor.lastna, file = "iq_train_labels.cor.lastna.csv")
 
 ```
 
-##Conclusion about correlation
+###Conclusion about correlation
 
 Different methods of imputing missing values had no impact on correlation.  Will stick with last.na as the final version.
 
-#Feature Selection and Dimensionality Reduction
-
-##Feature Selection
+#FEATURE SELECTION and DIMENTIONALITY REDUCTION
 
 We will use various methods to see if we can find any features that need to be eliminated
 
@@ -565,12 +682,12 @@ We will use various methods to see if we can find any features that need to be e
 library(mlbench)
 library(caret)
 # calculate correlation matrix
-CorrelationMatrix <- cor(df_train_labels.lastna[,5:25])
+CorrelationMatrix <- cor(sj_train_labels.lastna[,5:25])
 # find attributes that are highly corrected (ideally >0.75)
 highlyCorrelated <- findCorrelation(CorrelationMatrix, cutoff=0.75)
 # print indexes of highly correlated attributes
 print(highlyCorrelated)
-cnames <- colnames(df_train_labels[,5:25])
+cnames <- colnames(sj_train_labels[,5:25])
 for (i in list(highlyCorrelated)){
   print(cnames[i])
 }
@@ -643,20 +760,125 @@ axis(side = 1,las=2,labels = names(Labels),
 at = 1:ncol(iq_train_labels.boruta$ImpHistory), cex.axis = 0.7)
 ```
 
-##Drop columns for IQ from Boruta selection
+##Feature selection using Mutual Information 
+This analysis looks at the mutual information for a peak prediction model.  Five peaks will be used 
 
-Boruta feature selection kept all the variables for SJ but only 13 for IQ.  We need to drop the variables for IQ.
+###Determine the highest total_cases per week in a year
+```{r highest cases, echo= TRUE}
 
-```{r drop columns, echo=TRUE}
 
-iq.boruta.attributes <- getSelectedAttributes(iq_train_labels.boruta, withTentative = F)
+#calculate the max value by year and sort by highest cases
+max_cases.year <-sort(tapply(sj_train_labels.lastna$total_cases, sj_train_labels.lastna$year, max), decreasing = TRUE)
 
-iq.boruta.attributes <- c("city", "year", "weekofyear", iq.boruta.attributes)
+max_cases.year
 
-iq_train_labels.attrfinal <- iq_train_labels.lastna[ , iq.boruta.attributes, drop = FALSE]
+#Determine which weeks are associated to which max year values
+dname <- dimnames(max_cases.year)
+
+for (i in 1:6) {
+  max_cases.week <-
+    sort(tapply(sj_train_labels.lastna$total_cases[sj_train_labels.lastna$year == as.numeric(dname[[1]][i])], sj_train_labels.lastna$weekofyear[sj_train_labels.lastna$year == as.numeric(dname[[1]][i])], max), decreasing = TRUE)
+
+print(dname[[1]][i])
+print(max_cases.week[1:15])
+}
+
 ```
 
-#Predictive models
+###Create dataframe with peaks only
+Five peaks will be isolated from each city with 5 weeks around each side of the max yearly value.  A new dataframe will be made for use in mutual information and then for prediction.
+
+Add a binary variable "peak" for logistic regression purposes (peak = 1)
+```{r dataframe for peaks, echo=TRUE}
+
+sj.peak.1994 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1994 & sj_train_labels.lastna$weekofyear <= 46 & sj_train_labels.lastna$weekofyear >= 36 ,]
+
+sj.peak.1998 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1998 & sj_train_labels.lastna$weekofyear <= 47 & sj_train_labels.lastna$weekofyear >= 37 ,]
+
+sj.peak.2007 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2007 & sj_train_labels.lastna$weekofyear <= 45 & sj_train_labels.lastna$weekofyear >= 35 ,]
+
+sj.peak.1991 <- rbind(sj_train_labels.lastna[sj_train_labels.lastna$year == 1991 & sj_train_labels.lastna$weekofyear <= 52 & sj_train_labels.lastna$weekofyear >= 43 ,],
+                      sj_train_labels.lastna[sj_train_labels.lastna$year == 1992 & sj_train_labels.lastna$weekofyear == 1 ,] )
+
+sj.peak.2005 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2005 & sj_train_labels.lastna$weekofyear <= 40 & sj_train_labels.lastna$weekofyear >= 30 ,]
+
+sj.peak <-rbind(sj.peak.1991,sj.peak.1994,sj.peak.1998,sj.peak.2005,sj.peak.2007)
+
+sj.peak$peak <- 1
+
+rm(sj.peak.1991,sj.peak.1994,sj.peak.1998,sj.peak.2005,sj.peak.2007)
+
+
+```
+
+###Create dataframe with non-peaks
+Add a binary variable "nonpeak" for logistic regression purposes (peak = 0)
+```{r dataframe for non-peaks, echo=TRUE}
+
+sj.nonpeak.1997 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1997 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.2001 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2001 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.2003 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2003 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.1993 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1993 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak.1996 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1996 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
+
+sj.nonpeak <-rbind(sj.nonpeak.1997,
+                   sj.nonpeak.2001,
+                   sj.nonpeak.2003,
+                   sj.nonpeak.1993,
+                   sj.nonpeak.1996)
+
+rm(sj.nonpeak.1997,sj.nonpeak.2001,sj.nonpeak.2003,sj.nonpeak.1993,sj.nonpeak.1996)
+
+sj.nonpeak$peak <- 0
+
+```
+
+###Determine mutual info for the new dataframe with peaks
+```{r mutual info peaks, echo=TRUE}
+library(entropy)
+library(infotheo)
+
+cnames <- colnames(sj.peak)
+for (i in 5:(ncol(sj.peak)-1)) {
+  disc1 <- discretize(sj.peak$total_cases)
+  disc2 <- discretize(sj.peak[,i])
+  print(cnames[i])
+  print(mutinformation(disc1, disc2))
+}
+```
+###Determine mutual info for the new dataframe with nonpeaks
+```{r mutual info nonpeaks, echo=TRUE}
+library(entropy)
+library(infotheo)
+
+cnames <- colnames(sj.nonpeak)
+for (i in 5:(ncol(sj.nonpeak)-1)) {
+  disc1 <- discretize(sj.nonpeak$total_cases)
+  disc2 <- discretize(sj.nonpeak[,i])
+  print(cnames[i])
+  print(mutinformation(disc1, disc2))
+}
+```
+##Feature selection using logistic regression
+
+###Build and test a logistic regression model for the peaks 
+```{r peak glm}
+sj_peak.glm <- data.frame(sj.peak, sj.nonpeak)
+
+# Fit a logistic regression model
+fit_glm <- glm(peak~.,sj_peak.glm[,5:26],family = "binomial")
+ 
+# generate summary
+ 
+summary(fit_glm)
+
+```
+
+#REDICTIVE MODELS
 
 The following predictive models will reivew the Root Square Mean Error by each city.  This is done without feature selection and with missing values imputed as the last non-na values.
 
@@ -711,8 +933,8 @@ library(ggplot2)
 
 #determine the dispersion of the total_cases
 
-round(with(df_train_labels, tapply(total_cases, city, mean)),2)
-round(with(df_train_labels, tapply(total_cases, city, var)),2)
+round(with(sj_train_labels.lastna, tapply(total_cases, city, mean)),2)
+round(with(sj_train_labels.lastna, tapply(total_cases, city, var)),2)
 
 #As there is over-dispersion of total_cases (variance is greater than the mean) we can go ahead and build the NBR model 
 
@@ -811,24 +1033,32 @@ ggplot(df_prediction_iq.svm, aes(x = time, y = value, color = variable)) +
 
 ##Random Forest for SJ 
 ```{r random forest for SJ, echo=TRUE}
-library(randomForest)
 library(reshape2)
 library(ggplot2)
+library(randomForest)
+
+#Add month to the dataframe
+sj_train_labels.lastna$month <- as.POSIXlt(sj_train_labels.lastna$week_start_date)$mon
 
 #Fit a model
  
-model_sj.rf <- randomForest(sj_train_labels.lastna$total_cases ~ . , sj_train_labels.lastna[,5:25], importance = TRUE)
+model_sj.rf <- randomForest(sj_train_labels.lastna$total_cases ~ . , sj_train_labels.lastna[,5:26], importance = TRUE)
  
 #Find the importance of the RF model
-varimp <- importance(model_sj.rf)[sort.list(importance(model_sj.rf)[,2],decreasing = T),]
+#variable.imp <- importance(model_sj.rf, type = 1 )
+#[sort.list(importance(model_sj.rf)[,2],decreasing = T),]
+
+#variable.imp
 
 #graph the importance
 varImpPlot(model_sj.rf, type = 1)
 varImpPlot(model_sj.rf, type = 2)
 
+
+
 #Use the predictions on the data
  
-prediction_sj.rf <-  predict(model_sj.rf, sj_train_labels.lastna[,5:25], type = 'response')
+prediction_sj.rf <-  predict(model_sj.rf, sj_train_labels.lastna[,5:26], type = 'response')
 
 #Plot the prediction for rf
 df_prediction_sj.rf <- data.frame('prediction' = prediction_sj.rf,
@@ -841,6 +1071,8 @@ ggplot(df_prediction_sj.rf, aes(x = time, y = value, color = variable)) +
   geom_line() +
   ggtitle('RF: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
 
+#remove month
+sj_train_labels.lastna$month <- NULL 
 ```
 
 ##Random Forest for IQ 
@@ -872,41 +1104,7 @@ ggplot(df_prediction_iq.rf, aes(x = time, y = value, color = variable)) +
 
 ##Multi Layer Perceptron for SJ
 ```{r mlp for SJ, echo=TRUE}
-# library(RSNNS)
-# library(reshape2)
-# library(ggplot2)
 
-# Build your own `normalize()` function
-# normalize <- function(x) {
-#   num <- x - min(x)
-#   denom <- max(x) - min(x)
-#   return (num/denom)
-# }
-# 
-# # Normalize the `iris` data
-# iris_norm <- as.data.frame(lapply(iris[1:4], normalize))
-# 
-# # Return the first part of `iris` 
-# head(iris)
-
-#Tip use the hist() function in the R console to to study the distribution of the Iris data before (iris) and after the normalization (iris_norm). 
-
-#To use the normalize() function from the keras package, you first need to make sure that you're working with a matrix. As you probably remember from earlier, the characteristic of matrices is that the matrix data elements are of the same basic type; In this case, you have target values that are of type factor, while the rest is all numeric.
-
-
-# iris[,5] <- as.numeric(iris[,5]) -1
-# 
-# # Turn `iris` into a matrix
-# iris <- as.matrix(iris)
-# 
-# # Set iris `dimnames` to `NULL`
-# dimnames(iris) <- NULL
-# 
-# # Normalize the `iris` data
-# iris <- normalize(iris[,1:4])
-# 
-# # Return the summary of `iris`
-# summary(iris)
 
 
 ```
@@ -917,18 +1115,18 @@ ggplot(df_prediction_iq.rf, aes(x = time, y = value, color = variable)) +
 
 ```
 
-##Root Mean Square Error for Predictive Models
-```{r rmse, echo=TRUE}
+##Mean Absolute Error for Predictive Models
+```{r MAE, echo=TRUE}
 
 fct.rmse <- function(total_cases, pred_model){
   error <- total_cases - pred_model
-  rms.error <- sqrt(mean(error^2))
+  rms.error <- mean(abs(error))
   return(round(rms.error,2))
 }
 
 print("RMSE for SJ")
 print("Baseline")
-sqrt(mean(sj_train_labels.shift$diff^2))
+mean(abs(sj_train_labels.shift$diff))
 print("Negative Binomial Regression")
 fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.nbr)
 print("SVM")
@@ -973,128 +1171,7 @@ plot(fit2)
 
 ```
 
-#Mutual Information for a Peak Prediction Model 
-This analysis looks at the mutual information for a peak prediction model.  Five peaks will be used 
 
-###Determine the highest total_cases per week in a year
-```{r peak prediction model, echo= TRUE}
-
-
-#calculate the max value by year and sort by highest cases
-max_cases.year <-sort(tapply(sj_train_labels.lastna$total_cases, sj_train_labels.lastna$year, max), decreasing = TRUE)
-
-max_cases.year
-
-#Determine which weeks are associated to which max year values
-dname <- dimnames(max_cases.year)
-
-for (i in 1:6) {
-  max_cases.week <-
-    sort(tapply(sj_train_labels.lastna$total_cases[sj_train_labels.lastna$year == as.numeric(dname[[1]][i])], sj_train_labels.lastna$weekofyear[sj_train_labels.lastna$year == as.numeric(dname[[1]][i])], max), decreasing = TRUE)
-
-print(dname[[1]][i])
-print(max_cases.week[1:15])
-}
-
-```
-
-###Create dataframe with peaks only
-Five peaks will be isolated from each city with 5 weeks around each side of the max yearly value.  A new dataframe will be made for use in mutual information and then for prediction.
-```{r df for peaks, echo=TRUE}
-
-sj.peak.1994 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1994 & sj_train_labels.lastna$weekofyear <= 46 & sj_train_labels.lastna$weekofyear >= 36 ,]
-
-sj.peak.1998 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1998 & sj_train_labels.lastna$weekofyear <= 47 & sj_train_labels.lastna$weekofyear >= 37 ,]
-
-sj.peak.2007 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2007 & sj_train_labels.lastna$weekofyear <= 45 & sj_train_labels.lastna$weekofyear >= 35 ,]
-
-sj.peak.1991 <- rbind(sj_train_labels.lastna[sj_train_labels.lastna$year == 1991 & sj_train_labels.lastna$weekofyear <= 52 & sj_train_labels.lastna$weekofyear >= 43 ,],
-                      sj_train_labels.lastna[sj_train_labels.lastna$year == 1992 & sj_train_labels.lastna$weekofyear == 1 ,] )
-
-sj.peak.2005 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2005 & sj_train_labels.lastna$weekofyear <= 40 & sj_train_labels.lastna$weekofyear >= 30 ,]
-
-sj.peak <-rbind(sj.peak.1991,sj.peak.1994,sj.peak.1998,sj.peak.2005,sj.peak.2007)
-
-rm(sj.peak.1991,sj.peak.1994,sj.peak.1998,sj.peak.2005,sj.peak.2007)
-
-
-```
-
-###Create dataframe with non-peaks
-```{r df for non-peaks, echo=TRUE}
-
-sj.nonpeak.1997 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1997 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
-
-sj.nonpeak.2001 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2001 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
-
-sj.nonpeak.2003 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 2003 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
-
-sj.nonpeak.1993 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1993 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
-
-sj.nonpeak.1996 <- sj_train_labels.lastna[sj_train_labels.lastna$year == 1996 & sj_train_labels.lastna$weekofyear <= 22 & sj_train_labels.lastna$weekofyear >= 12 ,]
-
-sj.nonpeak <-rbind(sj.nonpeak.1997,
-                   sj.nonpeak.2001,
-                   sj.nonpeak.2003,
-                   sj.nonpeak.1993,
-                   sj.nonpeak.1996)
-
-rm(sj.nonpeak.1997,sj.nonpeak.2001,sj.nonpeak.2003,sj.nonpeak.1993,sj.nonpeak.1996)
-
-```
-###Determine mutual info for the new df with peaks
-```{r mutual info peaks, echo=TRUE}
-library(entropy)
-library(infotheo)
-
-cnames <- colnames(sj.peak)
-for (i in 5:(ncol(sj.peak)-1)) {
-  disc1 <- discretize(sj.peak$total_cases)
-  disc2 <- discretize(sj.peak[,i])
-  print(cnames[i])
-  print(mutinformation(disc1, disc2))
-}
-```
-###Determine mutual info for the new df with nonpeaks
-```{r mutual info nonpeaks, echo=TRUE}
-library(entropy)
-library(infotheo)
-
-cnames <- colnames(sj.nonpeak)
-for (i in 5:(ncol(sj.nonpeak)-1)) {
-  disc1 <- discretize(sj.nonpeak$total_cases)
-  disc2 <- discretize(sj.nonpeak[,i])
-  print(cnames[i])
-  print(mutinformation(disc1, disc2))
-}
-```
-#Build and test a linear regression model for the peaks 
-```{r peak lm}
-set.seed(136)
-
-#randomly sample 20% of the training set for SJ
-sj_peak.sample <- sample(1:nrow(sj.peak), size=0.8*nrow(sj.peak))
-
-#build a new training a dev set
-sj_peak.train <- sj.peak[sj_peak.sample,]
-sj_peak.dev <- sj.peak[-sj_peak.sample,]
-
-#create a linear regression model
-sj_peak.lm <- lm(sj_peak.train$total_cases ~ . , sj_peak.train[,5:25])
-
-#predict the lm model to the dev model
-sj_peak.predict <- predict(sj_peak.lm, sj_peak.dev)
-
-#determine RMSE from prediction model
-fct.rmse <- function(total_cases, pred_model){
-  error <- total_cases - pred_model
-  rms.error <- sqrt(mean(error^2))
-  return(round(rms.error,2))
-}
-
-fct.rmse(sj_peak.dev$total_cases, sj_peak.predict)
-
-```
 
 
 
