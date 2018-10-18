@@ -610,7 +610,7 @@ corrplot(as.matrix(iq_train_labels.cor),
 library(corrplot)
 sj_train_labels.cor.naomit <-data.frame(round(cor(sj_train_labels.naomit[,5:25],
                                            use = "complete.obs"),2))
-View(sj_train_labels.cor.naomit)         
+#View(sj_train_labels.cor.naomit)         
 
 corrplot(as.matrix(sj_train_labels.cor.naomit), 
          method = "number",
@@ -619,7 +619,7 @@ corrplot(as.matrix(sj_train_labels.cor.naomit),
 
 iq_train_labels.cor.naomit <-data.frame(round(cor(iq_train_labels.naomit[,5:25],
                                            use = "complete.obs"),2))
-View(iq_train_labels.cor.naomit)         
+#View(iq_train_labels.cor.naomit)         
 
 corrplot(as.matrix(iq_train_labels.cor.naomit), 
          method = "number",
@@ -635,7 +635,7 @@ rm(iq_train_labels.cor)
 library(corrplot)
 sj_train_labels.cor.lastna <-data.frame(round(cor(sj_train_labels.lastna[,5:25],
                                            use = "complete.obs"),2))
-View(sj_train_labels.cor.lastna)         
+#View(sj_train_labels.cor.lastna)         
 
 corrplot(as.matrix(sj_train_labels.cor.lastna), 
          method = "number",
@@ -643,7 +643,7 @@ corrplot(as.matrix(sj_train_labels.cor.lastna),
 
 iq_train_labels.cor.lastna <-data.frame(round(cor(iq_train_labels.lastna[,5:25],
                                            use = "complete.obs"),2))
-View(iq_train_labels.cor.lastna)         
+#SView(iq_train_labels.cor.lastna)         
 
 corrplot(as.matrix(iq_train_labels.cor.lastna), 
          type = "upper", 
@@ -881,7 +881,6 @@ summary(fit_glm)
 #REDICTIVE MODELS
 
 The following predictive models will reivew the Root Square Mean Error by each city.  This is done without feature selection and with missing values imputed as the last non-na values.
-
 
 ##Baseline model for SJ
 The baseline model shifts the total_cases down by one so that the values fall down to the next week.  The difference between the orignal and the shifted values are taken and the RMSE is used as the metric to measure performance.
