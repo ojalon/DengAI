@@ -81,7 +81,7 @@ summary(dengue_features_train$reanalysis_tdtr_k)
 ```{r full, echo=TRUE}
 df <- rbind(dengue_features_train,dengue_features_test)
 ```
-###Divide the test and training sets into sj and iq separately
+###Divide the test into sj and iq separately
 ```{r sj & iq test, echo=TRUE}
 iq_features_test <- dengue_features_test[dengue_features_test$city == 'iq', ]
 sj_features_test <- dengue_features_test[dengue_features_test$city == 'sj', ]
@@ -162,19 +162,18 @@ summary(sj_features_test$week_start_date)
 
 These graphs only include data from the training set as it includes total cases.  Climate data across both training and test sets are below.
 ```{r graph histogram all, echo=TRUE}
+#remove week_start_date for histogram
+
+df_train_labels$week_start_date <- NULL
 
 cnames <- colnames(df_train_labels) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(df_train_labels)-1)) {
+for (i in 4:ncol(df_train_labels)) {
  hist(df_train_labels[,i],
       breaks = 20,
       main = paste("Freq Histogram", cnames[i], sep = ": "),
       xlab = cnames[i])
 }
-
-hist(df_train_labels$total_cases, 
-     breaks = 20,
-     main = paste("Freq Histogram: total_cases"))
 
 ```
 
@@ -183,16 +182,13 @@ Same as above but only for SJ.
 ```{r graph histogram SJ, echo=TRUE}
 cnames <- colnames(df_train_labels) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(df_train_labels)-1)) {
+for (i in 4:ncol(df_train_labels)) {
  hist(df_train_labels[df_train_labels$city == "sj",i], 
       breaks = 20,
       xlab = cnames[i], 
       main = paste("Freq Histogram for SJ", cnames[i], sep = ": "))
 }
 
-hist(df_train_labels$total_cases[df_train_labels$city == "sj"], 
-     breaks = 20,
-     main = "Freq Histogram for SJ: total_cases")
 ```
 
 ###GRAPH: Frequency histogram of all variables in training set for **IQ**
@@ -200,16 +196,13 @@ Same as above but only for IQ.
 ```{r graph histogram IQ, echo=TRUE}
 cnames <- colnames(df_train_labels) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(df_train_labels)-1)) {
+for (i in 4:(ncol(df_train_labels))) {
  hist(df_train_labels[df_train_labels$city == "iq",i],
       breaks = 20,
       xlab = cnames[i],
       main = paste("Freq Histogram for IQ", cnames[i], sep = ": "))
 }
 
-hist(df_train_labels$total_cases[df_train_labels$city == "iq"], 
-     breaks = 20,
-     main = "Freq Histogram for IQ: total_cases")
 ```
 
 ###GRAPH: Climate variables by time for **SJ**
@@ -218,7 +211,7 @@ Includes all the data from test and training set by time for SJ therefore the to
 ```{r graph sj initial analysis, echo=TRUE}
 cnames <- colnames(sj) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(sj))) {
+for (i in 5:(ncol(sj))) {
  plot(sj$week_start_date,sj[,i],
       type = "n",
       ylim = c(min(sj[,i],na.rm=TRUE), max(sj[,i],na.rm=TRUE)),
@@ -234,7 +227,7 @@ Includes all the data from test and training set by time for I therefore the tot
 
 cnames <- colnames(iq) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(iq))) {
+for (i in 5:(ncol(iq))) {
  plot(iq$week_start_date,iq[,i],
       type = "n",
       ylim = c(min(iq[,i],na.rm=TRUE), max(iq[,i],na.rm=TRUE)),
@@ -248,6 +241,9 @@ for (i in 9:(ncol(iq))) {
 Line graph of all data by total cases.  This uses only the training set.
 ```{r graph total cases time analysis, echo=TRUE}
 library(ggplot2)
+
+df_train_labels <- merge(dengue_features_train, dengue_labels_train, by=c("city","year","weekofyear"))
+
 par(mfcol=c(1,3))
 # Dengue Cases both cities together
 ggplot(data = df_train_labels, aes(x=week_start_date, y=total_cases)) +
@@ -278,7 +274,7 @@ Scatterplot using training set only.
 
 cnames <- colnames(df_train_labels) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(df_train_labels)-1)) {
+for (i in 5:(ncol(df_train_labels)-1)) {
  plot(df_train_labels$total_cases,
       df_train_labels[,i], 
       cex = 0.5, 
@@ -297,7 +293,7 @@ Same as above but for SJ
 
 cnames <- colnames(df_train_labels) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(df_train_labels)-1)) {
+for (i in 5:(ncol(df_train_labels)-1)) {
  plot(df_train_labels$total_cases[df_train_labels$city == "sj"],
       df_train_labels[df_train_labels$city == "sj",i], 
       cex = 0.5, 
@@ -316,7 +312,7 @@ Same as above but for IQ.
 
 cnames <- colnames(df_train_labels) 
 par(mfrow=c(2,2))
-for (i in 9:(ncol(df_train_labels)-1)) {
+for (i in 5:(ncol(df_train_labels)-1)) {
  plot(df_train_labels$total_cases[df_train_labels$city == "iq"],
       df_train_labels[df_train_labels$city == "iq",i], 
       cex = 0.5, 
@@ -333,7 +329,7 @@ We can see that the same feature is significantly different in each city
 
 ```{r means between cities, echo = TRUE}
 cnames <- colnames(sj_train_labels)
-for (i in 5:(ncol(dengue_features_train))){
+for (i in 5:(ncol(sj_train_labels))){
   wilt <- wilcox.test(sj_train_labels[,i],iq_train_labels[,i])  
   print(cnames[i])
   print(wilt)
@@ -480,8 +476,7 @@ Boxplot includes test and training set - NA still included
 ```{r graph boxplot, echo=TRUE}
 library(ggplot2)
 cnames <- colnames(df) 
-par(mfrow=c(2,2))
-for (i in 9:(ncol(df))) {
+for (i in 5:(ncol(df))) {
  p <- ggplot(df, aes(x=city, y = df[,i], fill = city)) + 
   geom_boxplot() +
    labs(title = "Boxplot of climate variables",
@@ -681,7 +676,8 @@ Different methods of imputing missing values had no impact on correlation.  Will
 We will use various methods to see if we can find any features that need to be eliminated
 
 ##Feature selection via CaretR (Remove redundant features)
-```{r Caret_Redundant Features, echo=TRUE}
+###CaretR (Remove redundant features) for SJ
+```{r Caret_Redundant Features SJ, echo=TRUE}
 library(mlbench)
 library(caret)
 # calculate correlation matrix
@@ -698,7 +694,8 @@ for (i in list(highlyCorrelated)){
 ```
 
 ##Feature selection via CaretR (via RFE)
-```{r Caret_RFE, echo=TRUE}
+###CaretR (via RFE) for SJ
+```{r Caret_RFE SJ, echo=TRUE}
 library(mlbench)
 library(caret)
 # define the control using a random forest selection function
@@ -712,6 +709,15 @@ predictors(sj_rfe_results)
 # plot the results
 plot(sj_rfe_results, type=c("g", "o"), main = "RFE plot for SJ")
 
+```
+
+###CaretR (via RFE) for IQ
+```{r Caret_RFE IQ, echo=TRUE}
+library(mlbench)
+library(caret)
+
+# define the control using a random forest selection function
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
 # run the RFE algorithm for IQ
 iq_rfe_results <- rfe(iq_train_labels.lastna[,5:24], iq_train_labels.lastna[,25], sizes=c(5:25), rfeControl=control)
 # summarize the results
@@ -722,7 +728,8 @@ predictors(iq_rfe_results)
 plot(iq_rfe_results, type=c("g", "o"), main = "RFE plot for IQ")
 ```
 
-##Feature selection for SJ via Boruta
+##Feature selection via Boruta
+###Boruta for SJ
 ```{r SJ Boruta, echo=TRUE}
 library(Boruta)
 sj_train_labels.boruta <- Boruta(sj_train_labels.lastna$total_cases~., data = sj_train_labels.lastna[,5:25], doTrace = 2)
@@ -742,7 +749,7 @@ axis(side = 1,las=2,labels = names(Labels),
 at = 1:ncol(sj_train_labels.boruta$ImpHistory), cex.axis = 0.7)
 ```
 
-##Feature selection for IQ via Boruta
+###Boruta for IQ
 ```{r IQ Boruta, echo=TRUE}
 library(Boruta)
 iq_train_labels.boruta <- Boruta(iq_train_labels.lastna$total_cases~., data = iq_train_labels.lastna[,5:25], doTrace = 2)
