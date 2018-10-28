@@ -10,17 +10,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-```{r library, echo=FALSE, warning=FALSE, message=FALSE}
-# library(psych)
-# library(ggplot2)
-# library(lattice)
-# library(sqldf)
-# library(outliers)
-# library(Hmisc)
-# library(missForest)
-# library(imputeTS)
-# library(pastecs)
-```
 
 #PRELIMINARY DATA PREPARATION
 
@@ -130,32 +119,38 @@ In this section, we summary the value of the data frames (together and by city).
 ###Review summary stats for each city
 ```{r summary, echo=TRUE, warning=FALSE}
 library(psych)
+
 df_test.summary <- psych::describe(dengue_features_test, IQR=TRUE, quant=c(.25,.75) )
-View(df_test.summary)
+#View(df_test.summary)
+
 df_train.summary <- psych::describe(dengue_features_train, IQR=TRUE, quant=c(.25,.75) )
-View(df_train.summary)
+#View(df_train.summary)
 
 sj_train.summary <- psych::describe(sj_train_labels, IQR=TRUE, quant=c(.25,.75) )
-View(sj_train.summary)
+#View(sj_train.summary)
 
 iq_train.summary <- psych::describe(iq_train_labels, IQR=TRUE, quant=c(.25,.75) )
-View(iq_train.summary)
+#View(iq_train.summary)
 
 
 df.summary <- psych::describe(df, IQR=TRUE, quant=c(.25,.75))
-View(df.summary)
-sj.summary <- psych::describe(sj, IQR=TRUE, quant=c(.25,.75) )
-View(sj.summary)
-iq.summary <- psych::describe(iq, IQR=TRUE, quant=c(.25,.75) )
-View(iq.summary)
+#View(df.summary)
 
-summary(dengue_features_test$week_start_date)
-summary(dengue_features_train$week_start_date)
-summary(iq_features_train$week_start_date)
-summary(iq_features_test$week_start_date)
-summary(sj_features_train$week_start_date)
-summary(sj_features_test$week_start_date)
+sj.summary <- psych::describe(sj, IQR=TRUE, quant=c(.25,.75) )
+#View(sj.summary)
+
+iq.summary <- psych::describe(iq, IQR=TRUE, quant=c(.25,.75) )
+#View(iq.summary)
+
+# summary(dengue_features_test$week_start_date)
+# summary(dengue_features_train$week_start_date)
+# summary(iq_features_train$week_start_date)
+# summary(iq_features_test$week_start_date)
+# summary(sj_features_train$week_start_date)
+# summary(sj_features_test$week_start_date)
  
+rm(df_test.summary, df_train.summary, sj_train.summary, iq_train.summary, df.summary, sj.summary, iq.summary)
+
 ```
 
 ###GRAPH: Frequency histogram of all variables in training set (both cities together)
@@ -175,6 +170,8 @@ for (i in 4:ncol(df_train_labels)) {
       xlab = cnames[i])
 }
 
+rm(cnames, i)
+
 ```
 
 ###GRAPH: Frequency histogram of all variables in training set for **SJ**
@@ -188,6 +185,8 @@ for (i in 4:ncol(df_train_labels)) {
       xlab = cnames[i], 
       main = paste("Freq Histogram for SJ", cnames[i], sep = ": "))
 }
+
+rm(cnames, i)
 
 ```
 
@@ -203,12 +202,14 @@ for (i in 4:(ncol(df_train_labels))) {
       main = paste("Freq Histogram for IQ", cnames[i], sep = ": "))
 }
 
+rm(cnames, i)
+
 ```
 
 ###GRAPH: Climate variables by time for **SJ**
 Includes all the data from test and training set by time for SJ therefore the total_cases in not included.  Total_cases by time is done separately.
 
-```{r graph sj initial analysis, echo=TRUE}
+```{r graph sj climate by time, echo=TRUE}
 cnames <- colnames(sj) 
 par(mfrow=c(2,2))
 for (i in 5:(ncol(sj))) {
@@ -219,11 +220,14 @@ for (i in 5:(ncol(sj))) {
       main = paste("Time Analysis for SJ", cnames[i], sep = ": "))
  lines(sj$week_start_date,sj[,i])
 }
+
+rm(cnames, i)
+
 ```
 
 ###GRAPH: Climate variables by time for **IQ**
 Includes all the data from test and training set by time for I therefore the total_cases in not included.  Total_cases by time is done separately.
-```{r graph iq initial analysis, echo=TRUE}
+```{r graph iq climate by time, echo=TRUE}
 
 cnames <- colnames(iq) 
 par(mfrow=c(2,2))
@@ -235,6 +239,58 @@ for (i in 5:(ncol(iq))) {
       main = paste("Time Analysis for IQ", cnames[i], sep = ": "))
  lines(iq$week_start_date,iq[,i])
 }
+
+rm(cnames, i)
+
+```
+
+###GRAPH: Climate variables by week for **SJ**
+Includes all the data from test and training set by time for SJ therefore the total_cases in not included.  Total_cases by time is done separately.
+
+```{r graph sj by week, echo=TRUE}
+library(ggplot2)
+
+cnames <- colnames(sj) 
+par(mfrow=c(2,2))
+for (i in 5:(ncol(sj))) {
+  gg1 <- ggplot(sj,
+                aes(x=weekofyear, 
+                    y = sj[,i], 
+                    group = weekofyear)) +
+    geom_boxplot() +
+    scale_x_continuous(breaks=seq(1,52,1)) +
+    ylab(cnames[i]) +
+    ggtitle(paste(cnames[i])) 
+
+    print(gg1)
+  }
+
+rm(cnames, i, gg1)
+
+```
+
+###GRAPH: Climate variables by week for **IQ**
+Includes all the data from test and training set by time for I therefore the total_cases in not included.  Total_cases by time is done separately.
+```{r graph iq by week, echo=TRUE}
+library(ggplot2)
+
+cnames <- colnames(iq) 
+par(mfrow=c(2,2))
+for (i in 5:(ncol(iq))) {
+  gg1 <- ggplot(sj,
+                aes(x=weekofyear, 
+                    y = sj[,i], 
+                    group = weekofyear)) +
+    geom_boxplot() +
+    scale_x_continuous(breaks=seq(1,52,1)) +
+    ylab(cnames[i]) +
+    ggtitle(paste(cnames[i])) 
+
+    print(gg1)
+  }
+
+rm(cnames, i, gg1)
+
 ```
 
 ###GRAPH: Total_cases by time for **SJ**, **IQ** and together
@@ -268,6 +324,55 @@ ggplot(data = df_train_labels[df_train_labels$city == "iq",], aes(x=week_start_d
 
 ```
 
+###GRAPH: Average Total_cases by week for **SJ**, **IQ**
+Line graph of all data by total cases.  This uses only the training set.
+```{r graph total cases by week, echo=TRUE}
+library(ggplot2)
+
+gg1 <- ggplot(sj_train_labels,
+                aes(x=weekofyear, 
+                    y = total_cases, 
+                    group = weekofyear)) +
+    geom_boxplot() +
+    scale_x_continuous(breaks=seq(1,52,1)) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=3, color="red", fill="red") +
+    ylab("Total cases") +
+    ggtitle(paste("Boxplot: Total cases by Week for SJ")) 
+
+    print(gg1)
+    
+gg3 <- ggplot(data=sj_labels_train, aes(x=weekofyear, y=total_cases)) +
+  geom_bar(stat="summary", fun.y = "mean") +
+  ggtitle(paste("Bar graph: Average total cases by Week for SJ")) +
+  scale_x_continuous(breaks = seq(1,52, 2))
+
+print(gg3)
+
+    
+gg2 <- ggplot(iq_train_labels,
+                aes(x=weekofyear, 
+                    y = total_cases, 
+                    group = weekofyear)) +
+    geom_boxplot() +
+    scale_x_continuous(breaks=seq(1,52,1)) +
+  stat_summary(fun.y=mean, geom="point", shape=20, size=3, color="red", fill="red") +
+    ylab("Total cases") +
+    ggtitle(paste("Boxplot: Total cases by Week for IQ")) 
+
+    print(gg2)
+
+gg4 <- ggplot(data=iq_labels_train, aes(x=weekofyear, y=total_cases)) +
+  geom_bar(stat="summary", fun.y = "mean") +
+  ggtitle(paste("Bar graph: Average total cases by Week for IQ")) +
+  scale_x_continuous(breaks = seq(1,52, 2))
+
+print(gg4)
+    
+    rm(gg1, gg2, gg3, gg4)
+
+
+```
+
 ###GRAPH: Total_cases by climate variables (both cities together)
 Scatterplot using training set only.
 ```{r graph total cases analysis, echo=TRUE}
@@ -284,6 +389,8 @@ for (i in 5:(ncol(df_train_labels)-1)) {
       ylab = cnames[i])
  
 }
+
+rm(cnames, i)
 ```
 
 ###GRAPH: Total_cases by climate variables for **SJ**
@@ -303,6 +410,9 @@ for (i in 5:(ncol(df_train_labels)-1)) {
       ylab = cnames[i])
  
 }
+
+rm(cnames, i)
+
 ```
 
 ###GRAPH: Total_cases by climate variables for **IQ**
@@ -322,9 +432,12 @@ for (i in 5:(ncol(df_train_labels)-1)) {
       ylab = cnames[i])
  
 }
+
+rm(cnames, i)
+
 ```
 
-##Compare the means between same variables in different cities
+###Compare the means between same variables in different cities
 We can see that the same feature is significantly different in each city 
 
 ```{r means between cities, echo = TRUE}
@@ -335,7 +448,7 @@ for (i in 5:(ncol(sj_train_labels))){
   print(wilt)
 }
 
-
+rm(cnames, i, wilt)
 ```
 
 ##Compare similar variable values within the dataset
@@ -466,8 +579,119 @@ for (i in 1:3){
 }
 
 sj_train_labels$diff <- NULL
-sj_train_labels$month <- NULL  
+sj_train_labels$month <- NULL 
+
+rm(gg1, gg2, gg3, i, ind1, ind2, j, p1, p2, precip)
+
 ```
+##Review of climate factors independently (SJ ONLY)
+This section of the exploratory analysis will review the effects of the major components of climate affect dengue cases.  A 5x cross validation decision tree algorithm will be used to review the MAE error by year.
+
+###Decision Tree with vegetation data
+```{r DT_&_Veg_data, echo = TRUE}
+library(rpart)
+library(plyr)
+
+form <- "total_cases ~ ndvi_se + ndvi_sw + ndvi_ne + ndvi_nw"
+folds <- split(sj_train_labels, 
+               cut(sample(1:nrow(sj_train_labels)),10))
+
+errs.c50 <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+ test <- ldply(folds[i], data.frame)
+ train <- ldply(folds[-i], data.frame)
+ tmp.model <- rpart(as.formula(form), train)
+ tmp.predict <- predict(tmp.model, newdata=test)
+ conf.mat <- table(test$total_cases, tmp.predict)
+ errs.c50[i] <- 1 - sum(diag(conf.mat))/sum(conf.mat)
+}
+
+print(sprintf("average error using k-fold cross validation and  decision tree algorithm: %.3f percent", 100*mean(abs(errs.c50))))
+
+rm(folds, test, tmp.model, train, conf.mat, errs.c50, form, i, tmp.predict)
+
+```
+
+###Decision Tree with temperature data
+```{r DT_&_temp_data, echo = TRUE}
+library(rpart)
+library(plyr)
+
+form <- "total_cases ~ station_max_temp_c + station_min_temp_c  + station_avg_temp_c  + station_diur_temp_rng_c + reanalysis_dew_point_temp_k  + reanalysis_air_temp_k + reanalysis_max_air_temp_k + reanalysis_min_air_temp_k + reanalysis_avg_temp_k + reanalysis_tdtr_k"
+
+folds <- split(sj_train_labels, 
+               cut(sample(1:nrow(sj_train_labels)),10))
+errs.c50 <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+ test <- ldply(folds[i], data.frame)
+ train <- ldply(folds[-i], data.frame)
+ tmp.model <- rpart(as.formula(form), train)
+ tmp.predict <- predict(tmp.model, newdata=test)
+ conf.mat <- table(test$total_cases, tmp.predict)
+ errs.c50[i] <- 1 - sum(diag(conf.mat))/sum(conf.mat)
+}
+
+print(sprintf("average error using k-fold cross validation and  decision tree algorithm: %.3f percent", 100*mean(abs(errs.c50))))
+
+rm(folds, test, tmp.model, train, conf.mat, errs.c50, form, i, tmp.predict)
+
+```
+
+###Decision Tree with precipitation data
+```{r DT_&_precip_data, echo = TRUE}
+library(rpart)
+library(plyr)
+
+form <- "total_cases ~ station_precip_mm  + precipitation_amt_mm + reanalysis_sat_precip_amt_mm + reanalysis_precip_amt_kg_per_m2"
+
+folds <- split(sj_train_labels, 
+               cut(sample(1:nrow(sj_train_labels)),10))
+errs.c50 <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+ test <- ldply(folds[i], data.frame)
+ train <- ldply(folds[-i], data.frame)
+ tmp.model <- rpart(as.formula(form), train)
+ tmp.predict <- predict(tmp.model, newdata=test)
+ conf.mat <- table(test$total_cases, tmp.predict)
+ errs.c50[i] <- 1 - sum(diag(conf.mat))/sum(conf.mat)
+}
+
+print(sprintf("average error using k-fold cross validation and  decision tree algorithm: %.3f percent", 100*mean(abs(errs.c50))))
+
+rm(folds, test, tmp.model, train, conf.mat, errs.c50, form, i, tmp.predict)
+
+```
+
+###Decision Tree with humidity data
+```{r DT_&_humid_data, echo = TRUE}
+library(rpart)
+library(plyr)
+
+form <- "total_cases ~ reanalysis_relative_humidity_percent +	reanalysis_specific_humidity_g_per_kg"
+
+folds <- split(sj_train_labels, 
+               cut(sample(1:nrow(sj_train_labels)),10))
+errs.c50 <- rep(NA, length(folds))
+
+for (i in 1:length(folds)) {
+ test <- ldply(folds[i], data.frame)
+ train <- ldply(folds[-i], data.frame)
+ tmp.model <- rpart(as.formula(form), train)
+ tmp.predict <- predict(tmp.model, newdata=test)
+ conf.mat <- table(test$total_cases, tmp.predict)
+ errs.c50[i] <- 1 - sum(diag(conf.mat))/sum(conf.mat)
+}
+
+print(sprintf("average error using k-fold cross validation and  decision tree algorithm: %.3f percent", 100*mean(abs(errs.c50))))
+
+rm(folds, test, tmp.model, train, conf.mat, errs.c50, form, i, tmp.predict)
+
+```
+
+
 
 #ANALYSIS OF OUTLIERS
 ###GRAPH: Boxplot of climate variables (test and train)
@@ -484,7 +708,7 @@ for (i in 5:(ncol(df))) {
        x = "City", y = cnames[i])
  print(p)
 }
-rm(p)
+rm(cnames, i, p)
 ```
 
 ###GRAPH: Boxplot of total cases
@@ -496,49 +720,67 @@ ggplot(df_train_labels, aes(x=city, y = total_cases, fill = city)) +
        x = "City", y = "Total_cases")
 ```
 
-#MISSING VALUES
+#DATAFRAME CLEANUP 1
+Clean up all the extra dataframes produced during the exploratory analysis
 
-#Check for missing values (is.na)
-
-In this section, we look at the number of missing values.  Later we will do something about these missing values.
-
-```{r count missing values, echo=TRUE}
-df.na <- sapply(df, function(x) sum(is.na (x)))
-
-sj.na <- sapply(sj, function(x) sum(is.na (x)))
-sj_train.na <- sapply(sj_train_labels, function(x) sum(is.na (x)))
-
-iq.na <- sapply(iq, function(x) sum(is.na (x)))
-iq_train.na <- sapply(iq_train_labels, function(x) sum(is.na (x)))
-
-df_train_labels.na <- sum(is.na(df_train_labels$total_cases))
-View(df.na)
-View(sj.na)
-View(iq.na)
-View(sj_train.na)
-View(iq_train.na)
+```{r df cleanup 1}
+rm(dengue_features_test,
+   dengue_features_train,
+   dengue_labels_train,
+   sj_features_test,
+   sj_features_train,
+   sj_labels_train,
+   iq_features_test,
+   iq_features_train,
+   iq_labels_train,
+   df,
+   iq,
+   sj,
+   df_train_labels,
+   submission_format
+    )
 
 
-df_train_labels.na
-rm(df.na)
-rm(sj.na)
-rm(iq.na)
-rm(sj_train.na)
-rm(iq_train.na)
-rm(df_train_labels.na)
+
 ```
 
 
 
 
-##Missing values:  Remove all rows with an NA in it 
+#MISSING VALUES
+
+###Check for missing values (is.na)
+
+In this section, we look at the number of missing values.  Later we will do something about these missing values.
+
+```{r count missing values, echo=TRUE}
+
+sj_train.na <- sapply(sj_train_labels, function(x) sum(is.na (x)))
+
+iq_train.na <- sapply(iq_train_labels, function(x) sum(is.na (x)))
+
+#df_train_labels.na <- sum(is.na(df_train_labels$total_cases))
+# View(sj_train.na)
+# View(iq_train.na)
+
+
+#df_train_labels.na
+rm(sj_train.na)
+rm(iq_train.na)
+#rm(df_train_labels.na)
+```
+
+
+
+
+###Missing values:  Remove all rows with an NA in it 
 ```{r na omit, echo=TRUE}
 sj_train_labels.naomit <- na.omit(sj_train_labels)
 iq_train_labels.naomit <- na.omit(iq_train_labels)
 
 ```
 
-##Missing values: Using last non-NA value and rbind the two city dataframes
+###Missing values: Using last non-NA value 
 ```{r last non-NA, echo=TRUE, results= "hide", message=FALSE}
 library(zoo)
 #library(tidyverse)
@@ -561,6 +803,34 @@ sum(is.na(iq_train_labels.lastna))
 
 ```
 
+#REMOVE week_start_date AND city FROM DATASET
+Removing the city and the week_start_date from the dataset wil allow for easier analysis
+
+```{r remove variables}
+#keep a version with the start week included
+sj_train_labels.startweek <- sj_train_labels.lastna
+iq_train_labels.startweek <- iq_train_labels.lastna
+
+#remove city
+sj_train_labels.naomit$city <- NULL
+sj_train_labels.lastna$city <- NULL
+sj_train_labels.startweek$city <- NULL
+
+iq_train_labels.naomit$city <- NULL
+iq_train_labels.lastna$city <- NULL
+iq_train_labels.startweek$city <- NULL
+
+#remove week_start_date
+sj_train_labels.naomit$week_start_date <- NULL
+sj_train_labels.lastna$week_start_date <- NULL
+
+iq_train_labels.naomit$week_start_date <- NULL
+iq_train_labels.lastna$week_start_date <- NULL
+
+```
+
+
+
 
 #CORRELATION ANALYSIS 
 
@@ -568,14 +838,14 @@ In this section, we look at the correlation between the total_cases and the clim
 
 First we need to remove any of the non-numeric variables.  The missing values are still in this first correlation analysis but this will be repeated with the missing values included.
 
-##Correlation analysls before missing values are addressed
+##Correlation analysis before missing values are addressed
 ```{r correlation, echo=TRUE}
 library(corrplot)
 #Correlation for SJ
 
 sj_train_labels.cor <-data.frame(round(cor(sj_train_labels[,5:25],
                                            use = "complete.obs"),2))
-View(sj_train_labels.cor)         
+#View(sj_train_labels.cor)         
 
 corrplot(as.matrix(sj_train_labels.cor), 
          method = "number",
@@ -586,12 +856,16 @@ corrplot(as.matrix(sj_train_labels.cor),
 
 iq_train_labels.cor <-data.frame(round(cor(iq_train_labels[,5:25],
                                            use = "complete.obs"),2))
-View(iq_train_labels.cor)         
+#View(iq_train_labels.cor)         
 
+plot.new()
 corrplot(as.matrix(iq_train_labels.cor), 
          method = "number",
          type = "upper",
          title = "Corrplot for IQ")
+
+rm(iq_train_labels.cor, sj_train_labels.cor)
+
 ```
 
 ###Export correlation to CSV
@@ -606,7 +880,7 @@ corrplot(as.matrix(iq_train_labels.cor),
 ###Correlation with na.omit
 ```{r corr na.omit, echo=TRUE}
 library(corrplot)
-sj_train_labels.cor.naomit <-data.frame(round(cor(sj_train_labels.naomit[,5:25],
+sj_train_labels.cor.naomit <-data.frame(round(cor(sj_train_labels.naomit,
                                            use = "complete.obs"),2))
 #View(sj_train_labels.cor.naomit)         
 
@@ -615,7 +889,7 @@ corrplot(as.matrix(sj_train_labels.cor.naomit),
          type = "upper")
 
 
-iq_train_labels.cor.naomit <-data.frame(round(cor(iq_train_labels.naomit[,5:25],
+iq_train_labels.cor.naomit <-data.frame(round(cor(iq_train_labels.naomit,
                                            use = "complete.obs"),2))
 #View(iq_train_labels.cor.naomit)         
 
@@ -623,15 +897,15 @@ corrplot(as.matrix(iq_train_labels.cor.naomit),
          method = "number",
          type = "upper")
 
-rm(sj_train_labels.cor)
-rm(iq_train_labels.cor)
+rm(sj_train_labels.cor.naomit)
+rm(iq_train_labels.cor.naomit)
 
 ```
 
 ###Correlation with Last NA
 ```{r corr last na, echo=TRUE}
 library(corrplot)
-sj_train_labels.cor.lastna <-data.frame(round(cor(sj_train_labels.lastna[,5:25],
+sj_train_labels.cor.lastna <-data.frame(round(cor(sj_train_labels.lastna,
                                            use = "complete.obs"),2))
 #View(sj_train_labels.cor.lastna)         
 
@@ -639,7 +913,7 @@ corrplot(as.matrix(sj_train_labels.cor.lastna),
          method = "number",
          type = "upper")
 
-iq_train_labels.cor.lastna <-data.frame(round(cor(iq_train_labels.lastna[,5:25],
+iq_train_labels.cor.lastna <-data.frame(round(cor(iq_train_labels.lastna,
                                            use = "complete.obs"),2))
 #SView(iq_train_labels.cor.lastna)         
 
@@ -653,6 +927,7 @@ corrplot(as.matrix(iq_train_labels.cor.lastna),
          number.cex= 7/ncol(iq_train_labels.lastna),
          diag = FALSE)
 
+rm(iq_train_labels.cor.lastna, sj_train_labels.cor.lastna)
 ```
 
 ###Export non-na correlation to CSV
@@ -667,9 +942,18 @@ corrplot(as.matrix(iq_train_labels.cor.lastna),
 
 ```
 
-###Conclusion about correlation
+##Conclusion about correlation USE LASTNA
 
 Different methods of imputing missing values had no impact on correlation.  Will stick with last.na as the final version.
+
+###Remove dataframes which will no longer be used
+
+```{r df corr remove, echo = TRUE}
+
+rm(sj_train_labels.naomit, iq_train_labels.naomit)
+
+```
+
 
 #FEATURE SELECTION and DIMENTIONALITY REDUCTION
 
@@ -681,17 +965,36 @@ We will use various methods to see if we can find any features that need to be e
 library(mlbench)
 library(caret)
 # calculate correlation matrix
-CorrelationMatrix <- cor(sj_train_labels.lastna[,5:25])
+CorrelationMatrix <- cor(sj_train_labels.lastna)
 # find attributes that are highly corrected (ideally >0.75)
 highlyCorrelated <- findCorrelation(CorrelationMatrix, cutoff=0.75)
 # print indexes of highly correlated attributes
 print(highlyCorrelated)
-cnames <- colnames(sj_train_labels[,5:25])
+cnames <- colnames(sj_train_labels.lastna)
 for (i in list(highlyCorrelated)){
   print(cnames[i])
 }
 
+rm(CorrelationMatrix, cnames, highlyCorrelated, i)
 ```
+###CaretR (Remove redundant features) for IQ
+```{r Caret_Redundant Features IQ, echo=TRUE}
+library(mlbench)
+library(caret)
+# calculate correlation matrix
+CorrelationMatrix <- cor(iq_train_labels.lastna)
+# find attributes that are highly corrected (ideally >0.75)
+highlyCorrelated <- findCorrelation(CorrelationMatrix, cutoff=0.75)
+# print indexes of highly correlated attributes
+print(highlyCorrelated)
+cnames <- colnames(iq_train_labels.lastna)
+for (i in list(highlyCorrelated)){
+  print(cnames[i])
+}
+
+rm(CorrelationMatrix, cnames, highlyCorrelated, i)
+```
+
 
 ##Feature selection via CaretR (via RFE)
 ###CaretR (via RFE) for SJ
@@ -701,13 +1004,15 @@ library(caret)
 # define the control using a random forest selection function
 control <- rfeControl(functions=rfFuncs, method="cv", number=10)
 # run the RFE algorithm for SJ
-sj_rfe_results <- rfe(sj_train_labels.lastna[,5:24], sj_train_labels.lastna[,25], sizes=c(5:25), rfeControl=control)
+sj_rfe_results <- rfe(sj_train_labels.lastna[,3:23], sj_train_labels.lastna$total_cases, sizes=c(3:23), rfeControl=control)
 # summarize the results
 print(sj_rfe_results)
 # list the chosen features
 predictors(sj_rfe_results)
 # plot the results
 plot(sj_rfe_results, type=c("g", "o"), main = "RFE plot for SJ")
+
+rm(sj_rfe_results, control)
 
 ```
 
@@ -719,20 +1024,77 @@ library(caret)
 # define the control using a random forest selection function
 control <- rfeControl(functions=rfFuncs, method="cv", number=10)
 # run the RFE algorithm for IQ
-iq_rfe_results <- rfe(iq_train_labels.lastna[,5:24], iq_train_labels.lastna[,25], sizes=c(5:25), rfeControl=control)
+iq_rfe_results <- rfe(iq_train_labels.lastna, iq_train_labels.lastna$total_cases, sizes=c(3:23), rfeControl=control)
 # summarize the results
 print(iq_rfe_results)
 # list the chosen features
-predictors(iq_rfe_results)
+ predictors(iq_rfe_results)
 # plot the results
 plot(iq_rfe_results, type=c("g", "o"), main = "RFE plot for IQ")
+
+rm(iq_rfe_results, control)
 ```
+##Feature selection using importance
+###Importance for SJ
+```{r SJ Importance, echo = TRUE}
+# ensure results are repeatable
+set.seed(136)
+
+# load the library
+library(mlbench)
+library(caret)
+
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=11, repeats=1)
+
+# train the model
+model <- train(total_cases~., data=sj_train_labels.lastna[,3:23], method="cforest", preProcess="scale", trControl=control)
+
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+# summarize importance
+print(importance)
+# plot importance
+plot(importance)
+
+model$finalModel
+
+rm(model, importance, control, GCtorture)
+
+```
+###Importance for IQ
+```{r IQ Importance, echo = TRUE}
+# ensure results are repeatable
+set.seed(136)
+
+# load the library
+library(mlbench)
+library(caret)
+
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+
+# train the model
+model <- train(total_cases~., data=iq_train_labels.lastna[,3:23], method="cforest", preProcess="scale", trControl=control)
+
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+# summarize importance
+print(importance)
+# plot importance
+plot(importance)
+
+rm(model, importance, control, GCtorture)
+
+```
+
+
 
 ##Feature selection via Boruta
 ###Boruta for SJ
 ```{r SJ Boruta, echo=TRUE}
 library(Boruta)
-sj_train_labels.boruta <- Boruta(sj_train_labels.lastna$total_cases~., data = sj_train_labels.lastna[,5:25], doTrace = 2)
+sj_train_labels.boruta <- Boruta(sj_train_labels.lastna$total_cases~., data = sj_train_labels.lastna, doTrace = 2)
 print(sj_train_labels.boruta)
 
 #Fix and tentative attributes
@@ -747,12 +1109,14 @@ names(lz) <- colnames(sj_train_labels.boruta$ImpHistory)
 Labels <- sort(sapply(lz,median))
 axis(side = 1,las=2,labels = names(Labels),
 at = 1:ncol(sj_train_labels.boruta$ImpHistory), cex.axis = 0.7)
+
+rm(lz, Labels, sj_train_labels.boruta)
 ```
 
 ###Boruta for IQ
 ```{r IQ Boruta, echo=TRUE}
 library(Boruta)
-iq_train_labels.boruta <- Boruta(iq_train_labels.lastna$total_cases~., data = iq_train_labels.lastna[,5:25], doTrace = 2)
+iq_train_labels.boruta <- Boruta(iq_train_labels.lastna$total_cases~., data = iq_train_labels.lastna, doTrace = 2)
 print(iq_train_labels.boruta)
 
 #Fix and tentative attributes
@@ -768,11 +1132,116 @@ names(lz) <- colnames(iq_train_labels.boruta$ImpHistory)
 Labels <- sort(sapply(lz,median))
 axis(side = 1,las=2,labels = names(Labels),
 at = 1:ncol(iq_train_labels.boruta$ImpHistory), cex.axis = 0.7)
+
+rm(lz, Labels, iq_train_labels.boruta)
 ```
 
-##Feature selection using Mutual Information 
-This analysis looks at the mutual information for a peak prediction model.  Five peaks will be used 
+##Feature Selection using Random Forest
+###Random Forest for SJ 
+```{r RF for FS for SJ, echo=TRUE}
+library(reshape2)
+library(ggplot2)
+library(randomForest)
+library(caret)
 
+#Fit a model
+ 
+model_sj.rf <- randomForest(sj_train_labels.startweek$total_cases ~ 
+          ndvi_ne +
+            ndvi_nw +
+            ndvi_se +
+            ndvi_sw +
+            precipitation_amt_mm +
+            reanalysis_air_temp_k +
+            reanalysis_avg_temp_k + 
+            reanalysis_dew_point_temp_k +
+            reanalysis_max_air_temp_k +
+            reanalysis_min_air_temp_k +
+            reanalysis_precip_amt_kg_per_m2 +
+            reanalysis_relative_humidity_percent +
+            reanalysis_sat_precip_amt_mm +
+            reanalysis_specific_humidity_g_per_kg +
+            reanalysis_tdtr_k + station_avg_temp_c +
+            station_diur_temp_rng_c +
+            station_max_temp_c +
+            station_min_temp_c +
+            station_precip_mm,
+          sj_train_labels.startweek,
+          importance = TRUE, 
+          ntree=1000)
+ 
+#How many trees are needed to reach the minimum error estimate? 
+which.min(model_sj.rf$mse)
+plot(model_sj.rf) 
+
+#Find the importance of the RF model
+imp <- as.data.frame(sort(importance(model_sj.rf)[,1],decreasing = TRUE),optional = T)
+names(imp) <- "% Inc MSE"
+imp
+ 
+#graph the importance
+varImpPlot(model_sj.rf, type = 1)
+varImpPlot(model_sj.rf, type = 2)
+
+rm(model_sj.rf, imp)
+
+```
+
+###Random Forest for IQ 
+```{r RF for FS for IQ, echo=TRUE}
+library(reshape2)
+library(ggplot2)
+library(randomForest)
+library(caret)
+
+#Fit a model
+ 
+model_iq.rf <- randomForest(iq_train_labels.startweek$total_cases ~ 
+          ndvi_ne +
+            ndvi_nw +
+            ndvi_se +
+            ndvi_sw +
+            precipitation_amt_mm +
+            reanalysis_air_temp_k +
+            reanalysis_avg_temp_k + 
+            reanalysis_dew_point_temp_k +
+            reanalysis_max_air_temp_k +
+            reanalysis_min_air_temp_k +
+            reanalysis_precip_amt_kg_per_m2 +
+            reanalysis_relative_humidity_percent +
+            reanalysis_sat_precip_amt_mm +
+            reanalysis_specific_humidity_g_per_kg +
+            reanalysis_tdtr_k + station_avg_temp_c +
+            station_diur_temp_rng_c +
+            station_max_temp_c +
+            station_min_temp_c +
+            station_precip_mm,
+          iq_train_labels.startweek,
+          importance = TRUE, 
+          ntree=1000)
+ 
+#How many trees are needed to reach the minimum error estimate? 
+which.min(model_iq.rf$mse)
+plot(model_iq.rf) 
+
+#Find the importance of the RF model
+imp <- as.data.frame(sort(importance(model_iq.rf)[,1],decreasing = TRUE),optional = T)
+names(imp) <- "% Inc MSE"
+imp
+ 
+#graph the importance
+varImpPlot(model_iq.rf, type = 1)
+varImpPlot(model_iq.rf, type = 2)
+
+rm(model_iq.rf, imp)
+```
+
+
+
+
+
+#PEAK MODEL ANALYSIS
+##Set up the peak analysis
 ###Determine the highest total_cases per week in a year
 ```{r highest cases, echo= TRUE}
 
@@ -792,6 +1261,8 @@ for (i in 1:6) {
 print(dname[[1]][i])
 print(max_cases.week[1:15])
 }
+
+rm(dname, i, max_cases.week, max_cases.year)
 
 ```
 
@@ -846,56 +1317,156 @@ rm(sj.nonpeak.1997,sj.nonpeak.2001,sj.nonpeak.2003,sj.nonpeak.1993,sj.nonpeak.19
 sj.nonpeak$peak <- 0
 
 ```
+##Feature selection using logistic regression
+
+###Build and test a logistic regression model for the peaks 
+```{r peak glm}
+sj_peak.glm <- rbind(sj.peak, sj.nonpeak)
+
+# Fit a logistic regression model
+fit_glm <- glm(sj_peak.glm$peak ~ .,
+               sj_peak.glm,
+               family = "binomial")
+ 
+# generate summary
+ 
+summary(fit_glm)
+rm(sj_peak.glm, fit_glm)
+
+```
+##Feature selection using Mutual Information 
+This analysis looks at the mutual information for a peak prediction model.  Five peaks will be used 
 
 ###Determine mutual info for the new dataframe with peaks
 ```{r mutual info peaks, echo=TRUE}
 library(entropy)
 library(infotheo)
 
+mu <- data.frame()
+
 cnames <- colnames(sj.peak)
-for (i in 5:(ncol(sj.peak)-1)) {
+for (i in 5:(ncol(sj.peak)-2)) {
   disc1 <- discretize(sj.peak$total_cases)
   disc2 <- discretize(sj.peak[,i])
-  print(cnames[i])
-  print(mutinformation(disc1, disc2))
+  mu[i-4,1] <- cnames[i]
+  mu[i-4,2] <- mutinformation(disc1, disc2)
 }
+mu[order(mu$V2, decreasing = TRUE),]
+
+rm(mu, cnames, i, disc1, disc2)
+
 ```
 ###Determine mutual info for the new dataframe with nonpeaks
 ```{r mutual info nonpeaks, echo=TRUE}
 library(entropy)
 library(infotheo)
 
+mu <- data.frame()
+
 cnames <- colnames(sj.nonpeak)
-for (i in 5:(ncol(sj.nonpeak)-1)) {
+for (i in 5:(ncol(sj.nonpeak)-2)) {
   disc1 <- discretize(sj.nonpeak$total_cases)
   disc2 <- discretize(sj.nonpeak[,i])
-  print(cnames[i])
-  print(mutinformation(disc1, disc2))
+  mu[i-4,1] <- cnames[i]
+  mu[i-4,2] <- mutinformation(disc1, disc2)
 }
+mu[order(mu$V2, decreasing = TRUE),]
+
+rm(mu, cnames, i, disc1, disc2)
 ```
-##Feature selection using logistic regression
+##Feature selection using Naive Bayes
 
-###Build and test a logistic regression model for the peaks 
-```{r peak glm}
-sj_peak.glm <- data.frame(sj.peak, sj.nonpeak)
+###Build and test a Naive Bayes model for the peaks 
+```{r peak Naive Bayes, echo = TRUE}
+library(e1071)
 
-# Fit a logistic regression model
-fit_glm <- glm(peak~.,sj_peak.glm[,5:26],family = "binomial")
+sj_peak.nb <- rbind(sj.peak, sj.nonpeak)
+
+# Fit a Naive Bayes model
+fit_nb <- naiveBayes(sj_peak.nb$total_cases ~ ., sj_peak.nb)
  
 # generate summary
- 
-summary(fit_glm)
+
+summary(fit_nb)
+
+#remove fit_nb
+rm(fit_nb, sj_peak.nb)
 
 ```
+
+##Remove peak and non-peak dataframes
+```{r remove peak df, echo= TRUE}
+
+rm(sj.peak, sj.nonpeak)
+
+```
+
+
 
 #PREDICTIVE MODELS
 
 The following predictive models will reivew the Root Square Mean Error by each city.  This is done without feature selection and with missing values imputed as the last non-na values.
 
-##Baseline model for SJ
+ 
+#80/20Training and validation set
+###SJ: training and validation
+```{r sj_train_validation, echo = TRUE}
+
+set.seed(136) 
+ 
+# randomly pick 80% of the number of observations
+index.sj <- sample(1:nrow(sj_train_labels.startweek),size = 0.8*nrow(sj_train_labels.startweek)) 
+ 
+# subset train_labels to include only the elements in the index
+train.sj <- sj_train_labels.startweek[index.sj,] 
+ 
+# subset train_labels to include all but the elements in the index
+validation.sj <- sj_train_labels.startweek[-index.sj,] 
+ 
+nrow(train.sj)
+nrow(validation.sj)
+
+# # Create a dataframe with train and test indicator...
+# group <- rep(NA,nrow(sj_train_labels.startweek))
+# 
+# group <- ifelse(seq(1,nrow(sj_train_labels.startweek)) %in% index,"Train","Validation")
+# 
+# df <- data.frame(date=sj_train_labels.startweek$week_start_date,cases=sj_train_labels.startweek$total_cases,group)
+# 
+# # ...and plot it
+# ggplot(df,aes(x = date,y = cases, color = group)) + geom_point() +
+#   scale_color_discrete(name="") + theme(legend.position="top")
+
+rm(index.sj)
+
+```
+
+###IQ: training and validation
+```{r iq_train_validation, echo = TRUE}
+set.seed(136) 
+ 
+# randomly pick 80% of the number of observations
+index.iq <- sample(1:nrow(iq_train_labels.startweek),size = 0.8*nrow(iq_train_labels.startweek)) 
+ 
+# subset train_labels to include only the elements in the index
+train.iq <- iq_train_labels.startweek[index.iq,] 
+ 
+# subset train_labels to include all but the elements in the index
+validation.iq <- iq_train_labels.startweek[-index.iq,] 
+ 
+nrow(train.iq)
+nrow(validation.iq)
+
+
+rm(index.iq)
+
+```
+
+##Baseline models
+###Baseline model 1 for SJ
 The baseline model shifts the total_cases down by one so that the values fall down to the next week.  The difference between the orignal and the shifted values are taken and the RMSE is used as the metric to measure performance.
 
-```{r baseline for sj, echo}
+```{r baseline1 for sj, echo=TRUE}
 #create a new data frame from the lastna dataframe
 sj_train_labels.shift <- sj_train_labels.lastna
 
@@ -910,12 +1481,22 @@ sj_train_labels.shift$total_cases2[1] <- 0
 
 #take the difference between total_cases and total_cases2
 sj_train_labels.shift$diff <- sj_train_labels.shift$total_cases2 - sj_train_labels.shift$total_cases
+
+# Evaluate RMSE and MAE on the validation data
+RMSE.SJ.baseline1 <- sqrt(mean((sj_train_labels.shift$diff)^2))
+RMSE.SJ.baseline1
+
+MAE.SJ.baseline1 <- mean(abs(sj_train_labels.shift$diff))
+MAE.SJ.baseline1
+
+
+rm(sj_train_labels.shift)
 ```
 
-##Baseline model for IQ
+###Baseline model 1 for IQ
 The baseline model shifts the total_cases down by one so that the values fall down to the next week.  The difference between the orignal and the shifted values are taken and the RMSE is used as the metric to measure performance.
 
-```{r baseline for iq}
+```{r baseline1 for iq, echo=TRUE}
 #create a new data frame from the lastna dataframe
 iq_train_labels.shift <- iq_train_labels.lastna
 
@@ -931,9 +1512,53 @@ iq_train_labels.shift$total_cases2[1] <- 0
 #take the difference between total_cases and total_cases2
 iq_train_labels.shift$diff <- iq_train_labels.shift$total_cases2 - iq_train_labels.shift$total_cases
 
+# Evaluate RMSE and MAE on the validation data
+RMSE.IQ.baseline1 <- sqrt(mean((iq_train_labels.shift$diff)^2))
+RMSE.IQ.baseline1
+
+MAE.IQ.baseline1 <- mean(abs(iq_train_labels.shift$diff))
+MAE.IQ.baseline1
+
+rm(iq_train_labels.shift)
+
 ```
+###Baseline model 2 for SJ
+```{r baseline2 for SJ, echo = TRUE}
+#Here is a plot showing which points belong to which set (train or test).
+library(ggplot2)
 
+# Baseline model - predict the mean of the training data
+best.guess.sj <- mean(train.sj$total_cases)
+ 
+# Evaluate RMSE and MAE on the validation data
+RMSE.SJ.baseline2 <- sqrt(mean((best.guess.sj-validation.sj$total_cases)^2))
+RMSE.SJ.baseline2
 
+MAE.SJ.baseline2 <- mean(abs(best.guess.sj-validation.sj$total_cases))
+MAE.SJ.baseline2
+
+rm(best.guess.sj)
+
+```
+###Baseline model 2 for IQ
+```{r baseline2 for IQ, echo = TRUE}
+
+#Here is a plot showing which points belong to which set (train or test).
+
+library(ggplot2)
+
+# Baseline model - predict the mean of the training data
+best.guess.iq <- mean(train.iq$total_cases)
+ 
+# Evaluate RMSE and MAE on the validation data
+RMSE.IQ.baseline2 <- sqrt(mean((best.guess.iq-validation.iq$total_cases)^2))
+RMSE.IQ.baseline2
+
+MAE.IQ.baseline2 <- mean(abs(best.guess.iq-validation.iq$total_cases))
+MAE.IQ.baseline2
+
+rm(best.guess.iq)
+```
 ##Negative binomial regression (NBR)
 ### NBR for SJ
 ```{r NBR for SJ, echo=TRUE}
@@ -943,21 +1568,22 @@ library(ggplot2)
 
 #determine the dispersion of the total_cases
 
-round(with(sj_train_labels.lastna, tapply(total_cases, city, mean)),2)
-round(with(sj_train_labels.lastna, tapply(total_cases, city, var)),2)
+round(with(sj_train_labels.startweek, mean(total_cases),2))
+round(with(sj_train_labels.startweek, var(total_cases),2))
 
 #As there is over-dispersion of total_cases (variance is greater than the mean) we can go ahead and build the NBR model 
 
-model_sj.nbr <- glm.nb(formula = total_cases ~ ., data = sj_train_labels.lastna[,5:25])
+#Build the model
+model_sj.nbr <- glm.nb(formula = total_cases ~ ., data = train.sj[,4:24])
 
 summary(model_sj.nbr)
 
-prediction_sj.nbr <-  predict(model_sj.nbr, sj_train_labels.lastna[,5:25], type = 'response')
+prediction_sj.nbr <-  predict(model_sj.nbr, validation.sj, type = 'response')
 
 #Plot the prediction for NBR
 df_prediction_sj.nbr <- data.frame('prediction' = prediction_sj.nbr,
-                                   'actual' = sj_train_labels.lastna$total_cases,
-                                   'time' = sj_train_labels.lastna$week_start_date)
+                                   'actual' = validation.sj$total_cases,
+                                   'time' = validation.sj$week_start_date)
 
 df_prediction_sj.nbr <- melt(df_prediction_sj.nbr, id.vars = 'time')
 
@@ -965,7 +1591,16 @@ ggplot(df_prediction_sj.nbr, aes(x = time, y = value, color = variable)) +
   geom_line() +
   ggtitle('NBR: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
 
+# Evaluate RMSE and MAE on the validation data
+RMSE.SJ.nbr <- sqrt(mean((prediction_sj.nbr-validation.sj$total_cases)^2))
+RMSE.SJ.nbr
+
+MAE.SJ.nbr <- mean(abs(prediction_sj.nbr-validation.sj$total_cases))
+MAE.SJ.nbr
+
+rm(df_prediction_sj.nbr, model_sj.nbr, prediction_sj.nbr)
 ```
+
 
 ### NBR for IQ
 ```{r NBR for IQ, echo=TRUE}
@@ -973,40 +1608,57 @@ library(MASS)
 library(reshape2)
 library(ggplot2)
 
-model_iq.nbr <- glm.nb(formula = total_cases ~ ., data = iq_train_labels.lastna[,5:25])
+#determine the dispersion of the total_cases
 
-prediction_iq.nbr <-  predict(model_iq.nbr, iq_train_labels.lastna[,5:25], type = 'response')
+round(with(iq_train_labels.startweek, mean(total_cases),2))
+round(with(iq_train_labels.startweek, var(total_cases),2))
+
+#As there is over-dispersion of total_cases (variance is greater than the mean) we can go ahead and build the NBR model 
+
+#Build the model
+model_iq.nbr <- glm.nb(formula = total_cases ~ ., data = train.iq[,4:24])
+
+summary(model_iq.nbr)
+
+prediction_iq.nbr <-  predict(model_iq.nbr, validation.iq, type = 'response')
 
 #Plot the prediction for NBR
 df_prediction_iq.nbr <- data.frame('prediction' = prediction_iq.nbr,
-                                   'actual' = iq_train_labels.lastna$total_cases,
-                                   'time' = iq_train_labels.lastna$week_start_date)
+                                   'actual' = validation.iq$total_cases,
+                                   'time' = validation.iq$week_start_date)
 
 df_prediction_iq.nbr <- melt(df_prediction_iq.nbr, id.vars = 'time')
 
 ggplot(df_prediction_iq.nbr, aes(x = time, y = value, color = variable)) +
   geom_line() +
-  ggtitle('NBR Dengue predicted Cases vs. Actual Cases (City-Iquitos) ')
+  ggtitle('NBR: Dengue predicted Cases vs. Actual Cases (City-IQUITOS) ')
+
+# Evaluate RMSE and MAE on the validation data
+RMSE.IQ.nbr <- sqrt(mean((prediction_iq.nbr-validation.iq$total_cases)^2))
+RMSE.IQ.nbr
+
+MAE.IQ.nbr <- mean(abs(prediction_iq.nbr-validation.iq$total_cases))
+MAE.IQ.nbr
+
+rm(df_prediction_iq.nbr, model_iq.nbr, prediction_iq.nbr)
 ```
 
-##Support vector machine for SJ
+##Support Vector Machines
+###SVM for SJ
 ```{r SVM for SJ, echo=TRUE}
-library(e1071)
+library(kernlab)
 library(reshape2)
 library(ggplot2)
 
-#Fit a model
- 
-model_sj.svm <- svm(sj_train_labels.lastna$total_cases ~ . , sj_train_labels.lastna[,5:25])
- 
-#Use the predictions on the data
- 
-prediction_sj.svm <-  predict(model_sj.svm, sj_train_labels.lastna[,5:25], type = 'response')
+#Build the model
+model_sj.svm <- ksvm(total_cases ~  ., data = train.sj, kernel = "vanilladot")
 
-#Plot the prediction for svm
+prediction_sj.svm <-  predict(model_sj.svm, validation.sj)
+
+#Plot the prediction for NBR
 df_prediction_sj.svm <- data.frame('prediction' = prediction_sj.svm,
-                                   'actual' = sj_train_labels.lastna$total_cases,
-                                   'time' = sj_train_labels.lastna$week_start_date)
+                                   'actual' = validation.sj$total_cases,
+                                   'time' = validation.sj$week_start_date)
 
 df_prediction_sj.svm <- melt(df_prediction_sj.svm, id.vars = 'time')
 
@@ -1014,24 +1666,33 @@ ggplot(df_prediction_sj.svm, aes(x = time, y = value, color = variable)) +
   geom_line() +
   ggtitle('SVM: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
 
+# Evaluate RMSE and MAE on the validation data
+RMSE.SJ.svm <- sqrt(mean((prediction_sj.svm-validation.sj$total_cases)^2))
+RMSE.SJ.svm
+
+MAE.SJ.svm <- mean(abs(prediction_sj.svm-validation.sj$total_cases))
+MAE.SJ.svm
+
+rm(df_prediction_sj.svm, model_sj.svm, prediction_sj.svm)
+
+
 ```
 
-##Support vector machine for IQ
+###SVM for IQ
 ```{r SVM for IQ, echo=TRUE}
-library(e1071)
+library(kernlab)
 library(reshape2)
 library(ggplot2)
 
-model_iq.svm <- svm(iq_train_labels.lastna$total_cases ~ . , iq_train_labels.lastna[,5:25])
- 
-#Use the predictions on the data
- 
-prediction_iq.svm <-  predict(model_iq.svm, iq_train_labels.lastna[,5:25], type = 'response')
+#Build the model
+model_iq.svm <- ksvm(total_cases ~  ., data = train.iq, kernel = "vanilladot")
 
-#Plot the prediction for svm
+prediction_iq.svm <-  predict(model_iq.svm, validation.iq)
+
+#Plot the prediction for NBR
 df_prediction_iq.svm <- data.frame('prediction' = prediction_iq.svm,
-                                   'actual' = iq_train_labels.lastna$total_cases,
-                                   'time' = iq_train_labels.lastna$week_start_date)
+                                   'actual' = validation.iq$total_cases,
+                                   'time' = validation.iq$week_start_date)
 
 df_prediction_iq.svm <- melt(df_prediction_iq.svm, id.vars = 'time')
 
@@ -1039,41 +1700,37 @@ ggplot(df_prediction_iq.svm, aes(x = time, y = value, color = variable)) +
   geom_line() +
   ggtitle('SVM: Dengue predicted Cases vs. Actual Cases (City-Iquitos) ')
 
-```
+# Evaluate RMSE and MAE on the validation data
+RMSE.IQ.svm <- sqrt(mean((prediction_iq.svm-validation.iq$total_cases)^2))
+RMSE.IQ.svm
 
-##Random Forest for SJ 
-```{r random forest for SJ, echo=TRUE}
+MAE.IQ.svm <- mean(abs(prediction_iq.svm-validation.iq$total_cases))
+MAE.IQ.svm
+
+rm(df_prediction_iq.svm, model_iq.svm, prediction_iq.svm)
+
+```
+##Random Forest 
+###RF without CV for SJ
+```{r RF for SJ, echo = TRUE}
 library(reshape2)
 library(ggplot2)
 library(randomForest)
+library(caret)
 
-#Add month to the dataframe
-sj_train_labels.lastna$month <- as.POSIXlt(sj_train_labels.lastna$week_start_date)$mon
+set.seed(136)
 
-#Fit a model
- 
-model_sj.rf <- randomForest(sj_train_labels.lastna$total_cases ~ . , sj_train_labels.lastna[,5:26], importance = TRUE)
- 
-#Find the importance of the RF model
-#variable.imp <- importance(model_sj.rf, type = 1 )
-#[sort.list(importance(model_sj.rf)[,2],decreasing = T),]
+#Build the model
+model_sj.rf <- randomForest(formula = total_cases ~ ., data = train.sj[,4:24])
 
-#variable.imp
+model_sj.rf
 
-#graph the importance
-varImpPlot(model_sj.rf, type = 1)
-varImpPlot(model_sj.rf, type = 2)
+prediction_sj.rf <-  predict(model_sj.rf, validation.sj, type = 'response')
 
-
-
-#Use the predictions on the data
- 
-prediction_sj.rf <-  predict(model_sj.rf, sj_train_labels.lastna[,5:26], type = 'response')
-
-#Plot the prediction for rf
+#Plot the prediction for NBR
 df_prediction_sj.rf <- data.frame('prediction' = prediction_sj.rf,
-                                   'actual' = sj_train_labels.lastna$total_cases,
-                                   'time' = sj_train_labels.lastna$week_start_date)
+                                   'actual' = validation.sj$total_cases,
+                                   'time' = validation.sj$week_start_date)
 
 df_prediction_sj.rf <- melt(df_prediction_sj.rf, id.vars = 'time')
 
@@ -1081,82 +1738,197 @@ ggplot(df_prediction_sj.rf, aes(x = time, y = value, color = variable)) +
   geom_line() +
   ggtitle('RF: Dengue predicted Cases vs. Actual Cases (City-San Juan) ')
 
-#remove month
-sj_train_labels.lastna$month <- NULL 
-```
+# Evaluate RMSE and MAE on the validation data
+RMSE.SJ.rf <- sqrt(mean((prediction_sj.rf-validation.sj$total_cases)^2))
+RMSE.SJ.rf
 
-##Random Forest for IQ 
-```{r random forest for IQ, echo=TRUE}
-library(randomForest)
+MAE.SJ.rf <- mean(abs(prediction_sj.rf-validation.sj$total_cases))
+MAE.SJ.rf
+
+rm(df_prediction_sj.rf, model_sj.rf, prediction_sj.rf)
+
+```
+###RF without CV for IQ
+```{r RF without CV for IQ, echo = TRUE}
 library(reshape2)
 library(ggplot2)
+library(randomForest)
+library(caret)
 
-#Fit a model
- 
-model_iq.rf <- randomForest(iq_train_labels.lastna$total_cases ~ . , iq_train_labels.lastna[,5:25], importance = TRUE)
- 
-#Use the predictions on the data
- 
-prediction_iq.rf <-  predict(model_iq.rf, iq_train_labels.lastna[,5:25], type = 'response')
+set.seed(136)
 
-#Plot the prediction for rf
+#Build the model
+model_iq.rf <- randomForest(formula = total_cases ~ ., data = train.iq[,4:24])
+
+model_iq.rf
+
+prediction_iq.rf <-  predict(model_iq.rf, validation.iq, type = 'response')
+
+#Plot the prediction for NBR
 df_prediction_iq.rf <- data.frame('prediction' = prediction_iq.rf,
-                                   'actual' = iq_train_labels.lastna$total_cases,
-                                   'time' = iq_train_labels.lastna$week_start_date)
+                                   'actual' = validation.iq$total_cases,
+                                   'time' = validation.iq$week_start_date)
 
 df_prediction_iq.rf <- melt(df_prediction_iq.rf, id.vars = 'time')
 
 ggplot(df_prediction_iq.rf, aes(x = time, y = value, color = variable)) +
   geom_line() +
-  ggtitle('RF: Dengue predicted Cases vs. Actual Cases (City-Iquitos) ')
+  ggtitle('RF: Dengue predicted Cases vs. Actual Cases (City-IQUITOS) ')
+
+# Evaluate RMSE and MAE on the validation data
+RMSE.IQ.rf <- sqrt(mean((prediction_iq.rf-validation.iq$total_cases)^2))
+RMSE.IQ.rf
+
+MAE.IQ.rf <- mean(abs(prediction_iq.rf-validation.iq$total_cases))
+MAE.IQ.rf
+
+rm(df_prediction_iq.rf, model_iq.rf, prediction_iq.rf)
 
 ```
 
-##Multi Layer Perceptron for SJ
+##Multi Layer Perceptron
+###MLP for SJ
 ```{r mlp for SJ, echo=TRUE}
 
 
 
 ```
 
-##Multi Layer Perceptron for IQ
+###MLP for IQ
 ```{r mlp for IQ, echo=TRUE}
 
 
 ```
 
-#EVALUATION OF PREDDICTIVE MODELS
-##Mean Absolute Error for Predictive Models
-```{r MAE, echo=TRUE}
+#EVALUATION OF PREDICTIVE MODELS
+##MAE and RMSE for Predictive Models
+###MAE and RMSE for SJ
+```{r MAE_RMSE for SJ, echo=TRUE}
 
-fct.rmse <- function(total_cases, pred_model){
-  error <- total_cases - pred_model
-  rms.error <- mean(abs(error))
-  return(round(rms.error,2))
+# Create a data frame with the error metrics for each method
+accuracy <- data.frame(Method = c("Baseline1",
+                                  "Baseline2",
+                                  "NB Regression",
+                                  "SVM",
+                                  "Random forest"),
+                       RMSE   = c(RMSE.SJ.baseline1,
+                                  RMSE.SJ.baseline2,
+                                  RMSE.SJ.svm,
+                                  RMSE.SJ.nbr,
+                                  RMSE.SJ.rf),
+                       MAE    = c(MAE.SJ.baseline1,
+                                  MAE.SJ.baseline2,
+                                  MAE.SJ.svm,
+                                  MAE.SJ.nbr,
+                                  MAE.SJ.rf)) 
+ 
+# Round the values and print the table
+accuracy$RMSE <- round(accuracy$RMSE,2)
+accuracy$MAE <- round(accuracy$MAE,2) 
+ 
+accuracy
+
+rm(accuracy, 
+   RMSE.SJ.baseline1,
+   RMSE.SJ.baseline2,
+   RMSE.SJ.svm,
+   RMSE.SJ.nbr,
+   RMSE.SJ.rf,
+   MAE.SJ.baseline1,
+   MAE.SJ.baseline2,
+   MAE.SJ.svm,
+   MAE.SJ.nbr,
+   MAE.SJ.rf)
+ 
+
+
+
+```
+
+###MAE and RMSE for IQ
+```{r MAE_RMSE for IQ, echo=TRUE}
+
+# Create a data frame with the error metrics for each method
+accuracy <- data.frame(Method = c("Baseline1",
+                                  "Baseline2",
+                                  "NB Regression",
+                                  "SVM",
+                                  "Random forest"),
+                       RMSE   = c(RMSE.IQ.baseline1,
+                                  RMSE.IQ.baseline2,
+                                  RMSE.IQ.svm,
+                                  RMSE.IQ.nbr,
+                                  RMSE.IQ.rf),
+                       MAE    = c(MAE.IQ.baseline1,
+                                  MAE.IQ.baseline2,
+                                  MAE.IQ.svm,
+                                  MAE.IQ.nbr,
+                                  MAE.IQ.rf)) 
+ 
+# Round the values and print the table
+accuracy$RMSE <- round(accuracy$RMSE,2)
+accuracy$MAE <- round(accuracy$MAE,2) 
+ 
+accuracy
+
+rm(accuracy, 
+   RMSE.IQ.baseline1,
+   RMSE.IQ.baseline2,
+   RMSE.IQ.svm,
+   RMSE.IQ.nbr,
+   RMSE.IQ.rf,
+   MAE.IQ.baseline1,
+   MAE.IQ.baseline2,
+   MAE.IQ.svm,
+   MAE.IQ.nbr,
+   MAE.IQ.rf)
+ 
+
+
+
+```
+
+###Drop training and validation sets
+```{r drop train and valid, echo = TRUE}
+rm(train.iq, train.sj, validation.iq, validation.sj)
+
+```
+
+
+#CROSS-VALIDATION - Build training and validation sets**
+### CV for SJ
+```{r CV for SJ, echo = TRUE}
+library(caret)
+
+set.seed(136)
+
+methods <- c("nnet","rf", "mlp", "rpart", "svmLinear", "svmRadial", "neuralnet")
+performetrics <- data.frame()
+#trainControl
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+
+for (i in 1:length(methods)){
+  #Train the model
+  model_sj.cv <- train(total_cases~.,
+                       data=sj_train_labels.lastna[3:23],
+                       method=methods[i],
+                       trControl=control)
+  # summarize results
+  #print(methods[i])
+  #model_sj.cv$results["MAE"]
+  #model_sj.cv$results["RMSE"]
+  performetrics[i,1] <- methods[i]
+  performetrics[i,2] <- min(model_sj.cv$results["MAE"])
+  performetrics[i,3] <- min(model_sj.cv$results["RMSE"])  
+
 }
 
-print("RMSE for SJ")
-print("Baseline")
-mean(abs(sj_train_labels.shift$diff))
-print("Negative Binomial Regression")
-fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.nbr)
-print("SVM")
-fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.svm)
-print("Random Forest")
-fct.rmse(sj_train_labels.lastna$total_cases, prediction_sj.rf)
+colnames(performetrics)[1]<- "Method"
+colnames(performetrics)[2]<- "MAE"
+colnames(performetrics)[3]<- "RMSE"
 
-print("RMSE for IQ")
-print("Baseline")
-sqrt(mean(iq_train_labels.shift$diff^2))
-print("Negative Binomial Regression")
-fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.nbr)
-print("SVM")
-fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.svm)
-print("Random Forest")
-fct.rmse(iq_train_labels.lastna$total_cases, prediction_iq.rf)
-
-
-
+View(performetrics)
+rm(i, control, methods, model_sj.cv, performetrics)
 ```
 
 #TIME SERIES ANALYSIS
