@@ -1398,9 +1398,9 @@ mu[order(mu$V2, decreasing = TRUE),]
 
 rm(mu, cnames, i, disc1, disc2)
 ```
-##Feature selection using Naive Bayes
+#Binary Classification
 
-###Build and test a Naive Bayes model for the peaks 
+###Naive Bayes model for the peak model 
 ```{r peak Naive Bayes, echo = TRUE}
 library(e1071)
 
@@ -1412,15 +1412,35 @@ fit_nb <- naiveBayes(sj_peak.nb$total_cases ~ ., sj_peak.nb)
 # generate summary
 
 summary(fit_nb)
+#fit_nb
 
 #remove fit_nb
 rm(fit_nb, sj_peak.nb)
 
 ```
 
+##Decision Tree model for the peak model 
+```{r peak decision tree, echo = TRUE}
+library(party)
+sj_peak.tree <- rbind(sj.peak, sj.nonpeak)
+
+# Fit a logistic regression model
+fit_tree <- ctree(sj_peak.tree$peak ~ .,
+               sj_peak.tree)
+ 
+# generate summary
+ 
+summary(fit_tree)
+fit_tree
+rm(sj_peak.tree, fit_tree)
+
+
+
+```
+
 ##Remove peak and non-peak dataframes
 ```{r remove peak df, echo= TRUE}
-
+write.csv(rbind(sj.peak, sj.nonpeak), file = "peak.csv")
 rm(sj.peak, sj.nonpeak)
 
 ```
