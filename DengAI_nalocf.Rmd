@@ -1,0 +1,849 @@
+---
+title: "DengAI_nalocf"
+author: "Oren Jalon"
+date: "November 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#DATA PREPARATION
+##LIBRARIES
+```{r library, echo = TRUE}
+library(tidyverse)
+library(caret)
+library(reshape2)
+```
+##IMPORT DATA
+```{r inport, echo = TRUE, message = FALSE}
+
+d_train <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_train.csv")
+d_labels <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_labels_train.csv")
+```
+##MERGE TRAIN and LABELS
+```{r add labels, echo=TRUE}
+library(tidyverse)
+df <- d_train %>%
+  inner_join(d_labels, by = (c("city","year","weekofyear")))
+
+```
+##FILTER BY CITY
+```{r sj & iq test, echo=TRUE}
+library(tidyverse)
+
+#splitting by city and dropping week of year
+sj <- df %>%
+  filter (city == "sj") 
+
+iq <- df %>%
+  filter (city == "iq")
+
+```
+#EXPLORE DATA
+##HEAD, TAIL, STR
+```{r}
+str(df)
+str(sj)
+str(iq)
+
+df %>% head(5)
+sj %>% head(5)
+iq %>% head(5)
+
+df %>% count(city)
+sj %>% count(city)
+iq %>% count(city)
+
+```
+#***SJ ANALYSIS***
+#PREPROCESSING
+##TRAINING AND TEST SETS(VALIDATION)
+```{r preprocessing, echo = TRUE}
+
+# Create the training and test datasets
+set.seed(100)
+
+# Step 1: Get row numbers for the training data
+trainRowNumbers <- createDataPartition(sj$total_cases, p=0.8, list=FALSE)
+
+# Step 2: Create the training  dataset
+trainData <- sj[trainRowNumbers,]
+
+# Step 3: Create the test dataset
+testData <- sj[-trainRowNumbers,]
+
+# Store X and Y for later use.
+x = trainData[, 1:24]
+y = trainData$total_cases
+
+rm(iq, sj, df, trainRowNumbers)
+
+```
+##DESCRIPTIVE STATISTICS
+###Training Data Only
+```{r desc stats, echo=TRUE}
+library(skimr)
+skimmed <- skim_to_wide(trainData[,c(-1,-4)])
+skimmed
+summary(trainData)
+skim(trainData)
+
+rm(skimmed)
+```
+##MISSING VALUES
+```{r missing, echo = TRUE}
+trainData <- trainData %>%
+  arrange(year, weekofyear) %>%
+  fill(names(.))
+
+anyNA(trainData)
+
+```
+##CORRELATION
+```{r corr, echo = TRUE}
+library(tidyverse)
+library(corrplot)
+library(RColorBrewer)
+require(gridExtra)
+
+trainData %>% 
+  dplyr::select(-city, -year, -weekofyear, -week_start_date) %>%
+  cor(use = 'pairwise.complete.obs') -> M1
+
+corrplot(M1, type="lower", method="shade",
+           col=brewer.pal(n=8, name="RdBu"),tl.cex=0.75, tl.col = "black", order = "hclust", diag=FALSE, title = "SJ Corrplot", mar=c(0,0,1,0))
+
+# see the correlations as barplot
+sort(M1[21,-21]) %>%  
+  as.data.frame %>% 
+  `names<-`('correlation') %>%
+  ggplot(aes(x = reorder(row.names(.), -correlation), y = correlation, fill = correlation)) + 
+  geom_bar(stat='identity', colour = 'black') + scale_fill_continuous(guide = FALSE) + scale_y_continuous(limits =  c(-.15,.25)) +
+  labs(title = 'San Jose\n Correlations', x = NULL, y = NULL) + coord_flip() -> cor1
+
+# can use ncol(M1) instead of 21 to generalize the code
+grid.arrange(cor1, nrow = 1)
+
+
+```
+
+
+##NORMALIZE DATA
+```{r normalize, echo = TRUE}
+preProcess_range_model <- preProcess(trainData[,5:25], method='range')
+trainData <- predict(preProcess_range_model, newdata = trainData)
+
+# Append the Y variable
+trainData$total_cases <- y
+
+apply(trainData[, 2:25], 2, FUN=function(x){c('min'=min(x), 'max'=max(x))})
+
+rm(preProcess_range_model)
+```
+#FEATURE SELECTION
+##VISUALIZE IMPORTANCE
+```{r visualize importance, echo = TRUE}
+# ensure results are repeatable
+set.seed(136)
+
+# load the library
+library(mlbench)
+library(caret)
+
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=11, repeats=1)
+
+# train the model
+model <- train(total_cases~., data=trainData[,5:25], method="cforest", trControl=control)
+
+# estimate variable importance
+importance <- varImp(model, scale=FALSE)
+# summarize importance
+print(importance)
+# plot importance
+plot(importance)
+
+model$finalModel
+
+rm(model, importance, control, GCtorture)
+
+```
+##RECURIVE FEATURE ELIMINATION
+```{r rfe, echo = TRUE}
+options(warn=-1)
+
+subsets <- c(1:5, 10, 15, 18)
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+
+lmProfile <- rfe(x=trainData[, 5:24], y=trainData$total_cases,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+
+lmProfile
+rm(lmProfile, ctrl, subsets)
+```
+#PREPARE TEST DATASET
+```{r prepare test, echo = TRUE}
+# Step 1: Impute missing values 
+testData3 <- testData %>%
+  arrange(year, weekofyear) %>%
+  fill(names(.))
+
+anyNA(trainData)
+
+# Step 3: Transform the features to range between 0 and 1
+preProcess_range_model <- preProcess(testData3[,5:25], method='range')
+testData4 <- predict(preProcess_range_model, newdata = testData3)
+
+# Append the Y variable
+testData4$total_cases <- testData$total_cases
+
+# View
+head(testData4[, 1:25])
+summary(testData4)
+
+rm(testData3, preProcess_missingdata_model, preProcess_range_model, x, y)
+```
+#TRAINING AND TUNING
+##MLP
+```{r mlp, echo = TRUE}
+library(reshape2)
+
+trainControl <- trainControl(method="repeatedcv", 
+                             number=5, 
+                             repeats=3,
+                             savePredictions="final",
+                             index=createFolds(trainData$total_cases, 5))
+
+# Step 1: Define the tuneGrid
+grid_mlp <- expand.grid(expand.grid(.decay = c(0, 0.1, 0.01, 0.001), .size = c(10, 20, 30, 40)))
+
+# Step 2: Tune hyper parameters by setting tuneGrid
+set.seed(100)
+model_mlp = train(total_cases ~ ndvi_ne +
+            ndvi_nw +
+            ndvi_se +
+            ndvi_sw +
+            precipitation_amt_mm +
+            reanalysis_air_temp_k +
+            reanalysis_avg_temp_k + 
+            reanalysis_dew_point_temp_k +
+            reanalysis_max_air_temp_k +
+            reanalysis_min_air_temp_k +
+            reanalysis_precip_amt_kg_per_m2 +
+            reanalysis_relative_humidity_percent +
+            reanalysis_sat_precip_amt_mm +
+            reanalysis_specific_humidity_g_per_kg +
+            reanalysis_tdtr_k + 
+            station_avg_temp_c +
+            station_diur_temp_rng_c +
+            station_max_temp_c +
+            station_min_temp_c +
+            station_precip_mm, 
+            data=trainData, 
+            trace=FALSE, 
+            method='nnet', 
+            tuneGrid = grid_mlp, 
+            maxit = 1000,
+            linout=TRUE,
+            trControl = trainControl)
+
+model_mlp
+
+# Step 3: Predict on testData and Compute the confusion matrix
+predict_mlp <- predict(model_mlp, testData4)
+head(predict_mlp)
+plot(testData4$total_cases)
+lines(predict_mlp, col=2)
+
+# Evaluate RMSE and MAE on the test data
+rmse.sj.mlp <- sqrt(mean((predict_mlp-testData4$total_cases)^2))
+rmse.sj.mlp
+
+mae.sj.mlp <- mean(abs(predict_mlp-testData4$total_cases))
+mae.sj.mlp
+
+#Plot the prediction for NBR
+df_predict_mlp<- data.frame('prediction' = predict_mlp,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_mlp <- melt(df_predict_mlp, id.vars = 'time')
+
+ggplot(df_predict_mlp, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('MLP: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+rm(grid_mlp, predict_mlp)
+```
+#ENSEMBLE METHODS
+##MULTIPLE MODELS
+```{r ensemble, echo = TRUE}
+library(caret)
+library(caretEnsemble)
+set.seed(100)
+
+#tuneGrid for the various models
+
+grid_rf <- expand.grid(.mtry = c(2, 4, 6, 8, 10, 12, 14, 16, 18, 20))
+
+grid_svmRadial <- expand.grid(sigma = c(.01, .015, 0.2), C = c(0.75, 0.9, 1, 1.1, 1.25))
+
+#Make an algorithm list for caretList
+algorithmList <- c("earth", "xgbDART", "knn")
+
+
+# Stacking Algorithms - Run multiple algos in one call.
+trainControl <- trainControl(method="repeatedcv", 
+                             number=5, 
+                             repeats=3,
+                             savePredictions="final",
+                             index=createFolds(trainData$total_cases, 5))
+
+
+models <- caretList(total_cases ~ ., 
+                    data=trainData[,5:25], 
+                    trControl=trainControl,
+                    methodList=algorithmList,
+                    tuneList=list(
+                      rf=caretModelSpec(method="rf", tuneGrid=grid_rf),
+                      svmRadial=caretModelSpec(method="svmRadial", tuneGrid=grid_svmRadial)))
+
+results <- resamples(models)
+
+summary(results)
+
+# Box plots to compare models
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(results, scales=scales)
+dotplot(results)
+
+# correlation between results
+modelCor(results)
+
+
+```
+##MAE and RMSE for MODELS
+```{r MAE RMSE, echo = TRUE}
+# Step 3: Predict on testData and Compute the confusion matrix
+predict_earth <- predict(models$earth, testData4)
+predict_rf <- predict(models$rf, testData4)
+predict_xgbDART <- predict(models$xgbDART, testData4)
+predict_svmRadial <- predict(models$svmRadial, testData4)
+predict_knn <- predict(models$knn, testData4)
+
+# Evaluate RMSE and MAE on the test data
+rmse.sj.earth <- sqrt(mean((predict_earth-testData4$total_cases)^2))
+rmse.sj.rf <- sqrt(mean((predict_rf-testData4$total_cases)^2))
+rmse.sj.xgbDART <- sqrt(mean((predict_xgbDART-testData4$total_cases)^2))
+rmse.sj.svmRadial <- sqrt(mean((predict_svmRadial-testData4$total_cases)^2))
+rmse.sj.knn <- sqrt(mean((predict_knn-testData4$total_cases)^2))
+
+mae.sj.earth <- mean(abs(predict_earth-testData4$total_cases))
+mae.sj.rf <- mean(abs(predict_rf-testData4$total_cases))
+mae.sj.xgbDART <- mean(abs(predict_xgbDART-testData4$total_cases))
+mae.sj.svmRadial <- mean(abs(predict_svmRadial-testData4$total_cases))
+mae.sj.knn <- mean(abs(predict_knn-testData4$total_cases))
+
+#Build a dataframe to put the MAE and RMSE
+performetrics <- data.frame()
+
+
+methods <- c("mlp", "earth", "rf", "xgbDART", "svmRadial", "knn")
+
+
+performetrics[1,1] <- methods[1]
+performetrics[2,1] <- methods[2]
+performetrics[3,1] <- methods[3]
+performetrics[4,1] <- methods[4]
+performetrics[5,1] <- methods[5]
+performetrics[6,1] <- methods[6]
+
+
+performetrics[1,2] <- rmse.sj.mlp
+performetrics[2,2] <- rmse.sj.earth
+performetrics[3,2] <- rmse.sj.rf
+performetrics[4,2] <- rmse.sj.xgbDART
+performetrics[5,2] <- rmse.sj.svmRadial
+performetrics[6,2] <- rmse.sj.knn
+
+performetrics[1,3] <- mae.sj.mlp  
+performetrics[2,3] <- mae.sj.earth 
+performetrics[3,3] <- mae.sj.rf  
+performetrics[4,3] <- mae.sj.xgbDART  
+performetrics[5,3] <- mae.sj.svmRadial  
+performetrics[6,3] <- mae.sj.knn  
+
+colnames(performetrics)[1]<- "Method"
+colnames(performetrics)[2]<- "RMSE"
+colnames(performetrics)[3]<- "MAE"
+
+
+performetrics
+
+
+```
+##GRAPH: ACTUAL VS PREDICTED
+```{r graph, echo = TRUE}
+#Plot the prediction for NBR
+df_predict_rf <- data.frame('prediction' = predict_rf,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_rf <- melt(df_predict_rf, id.vars = 'time')
+
+ggplot(df_predict_rf, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('rf: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_xgbDART <- data.frame('prediction' = predict_xgbDART,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_xgbDART <- melt(df_predict_xgbDART, id.vars = 'time')
+
+ggplot(df_predict_xgbDART, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('xgbDART: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_svmRadial <- data.frame('prediction' = predict_svmRadial,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_svmRadial <- melt(df_predict_svmRadial, id.vars = 'time')
+
+ggplot(df_predict_svmRadial, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('svmRadial: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_knn <- data.frame('prediction' = predict_knn,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_knn <- melt(df_predict_knn, id.vars = 'time')
+
+ggplot(df_predict_knn, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('knn: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_earth <- data.frame('prediction' = predict_earth,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_earth <- melt(df_predict_earth, id.vars = 'time')
+
+ggplot(df_predict_earth, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('EARTH: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+```
+
+
+
+##MULTIPLE METHODS:CORR-TOTAL_CASES
+Reducing the number of features to only those that are most correlated to tota_cases
+```{r ensemble corr_tc, echo = TRUE}
+library(caret)
+library(caretEnsemble)
+
+#tuneGrid for the various models
+
+grid_rf <- expand.grid(.mtry = c(1,2,3,4,5))
+
+grid_svmRadial <- expand.grid(sigma = c(.01, .015, 0.2), C = c(0.75, 0.9, 1, 1.1, 1.25))
+
+#Make an algorithm list for caretList
+algorithmList <- c("xgbDART", "knn", "earth")
+
+
+# Stacking Algorithms - Run multiple algos in one call.
+trainControl <- trainControl(method="repeatedcv", 
+                             number=5, 
+                             repeats=3,
+                             savePredictions="final",
+                             index=createFolds(trainData$total_cases, 5))
+
+set.seed(100)
+
+models.corr <- caretList(total_cases ~ reanalysis_specific_humidity_g_per_kg +
+station_max_temp_c +
+reanalysis_dew_point_temp_k +
+station_avg_temp_c +
+reanalysis_max_air_temp_k, 
+                    data=trainData[,5:25], 
+                    trControl=trainControl,
+                    methodList=algorithmList,
+                    tuneList=list(
+                      rf=caretModelSpec(method="rf", tuneGrid=grid_rf),
+                      svmRadial=caretModelSpec(method="svmRadial", tuneGrid=grid_svmRadial)))
+
+results.corr <- resamples(models.corr)
+
+summary(results.corr)
+
+# Box plots to compare models
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(results.corr, scales=scales)
+dotplot(results.corr)
+
+# correlation between results
+modelCor(results.corr)
+```
+
+##MAE and RMSE for CORR-TC MODELS
+```{r MAE RMSE CORR_TC, echo = TRUE}
+# Step 3: Predict on testData and Compute the confusion matrix
+predict_earth <- predict(models.corr$earth, testData4)
+predict_rf <- predict(models.corr$rf, testData4)
+predict_xgbDART <- predict(models.corr$xgbDART, testData4)
+predict_svmRadial <- predict(models.corr$svmRadial, testData4)
+predict_knn <- predict(models.corr$knn, testData4)
+
+# Evaluate RMSE and MAE on the test data
+rmse.sj.earth <- sqrt(mean((predict_earth-testData4$total_cases)^2))
+rmse.sj.rf <- sqrt(mean((predict_rf-testData4$total_cases)^2))
+rmse.sj.xgbDART <- sqrt(mean((predict_xgbDART-testData4$total_cases)^2))
+rmse.sj.svmRadial <- sqrt(mean((predict_svmRadial-testData4$total_cases)^2))
+rmse.sj.knn <- sqrt(mean((predict_knn-testData4$total_cases)^2))
+
+mae.sj.earth <- mean(abs(predict_earth-testData4$total_cases))
+mae.sj.rf <- mean(abs(predict_rf-testData4$total_cases))
+mae.sj.xgbDART <- mean(abs(predict_xgbDART-testData4$total_cases))
+mae.sj.svmRadial <- mean(abs(predict_svmRadial-testData4$total_cases))
+mae.sj.knn <- mean(abs(predict_knn-testData4$total_cases))
+
+#Build a dataframe to put the MAE and RMSE
+performetrics <- data.frame()
+
+
+methods <- c("mlp", "earth", "rf", "xgbDART", "svmRadial", "knn")
+
+
+performetrics[1,1] <- methods[1]
+performetrics[2,1] <- methods[2]
+performetrics[3,1] <- methods[3]
+performetrics[4,1] <- methods[4]
+performetrics[5,1] <- methods[5]
+performetrics[6,1] <- methods[6]
+
+
+performetrics[1,2] <- rmse.sj.mlp
+performetrics[2,2] <- rmse.sj.earth
+performetrics[3,2] <- rmse.sj.rf
+performetrics[4,2] <- rmse.sj.xgbDART
+performetrics[5,2] <- rmse.sj.svmRadial
+performetrics[6,2] <- rmse.sj.knn
+
+performetrics[1,3] <- mae.sj.mlp  
+performetrics[2,3] <- mae.sj.earth 
+performetrics[3,3] <- mae.sj.rf  
+performetrics[4,3] <- mae.sj.xgbDART  
+performetrics[5,3] <- mae.sj.svmRadial  
+performetrics[6,3] <- mae.sj.knn  
+
+colnames(performetrics)[1]<- "Method"
+colnames(performetrics)[2]<- "RMSE"
+colnames(performetrics)[3]<- "MAE"
+
+
+performetrics
+```
+
+##GRAPH for CORR: ACTUAL VS PREDICTED
+```{r graph corr, echo = TRUE}
+#Plot the prediction for NBR
+df_predict_rf <- data.frame('prediction' = predict_rf,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_rf <- melt(df_predict_rf, id.vars = 'time')
+
+ggplot(df_predict_rf, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('rf: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_xgbDART <- data.frame('prediction' = predict_xgbDART,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_xgbDART <- melt(df_predict_xgbDART, id.vars = 'time')
+
+ggplot(df_predict_xgbDART, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('xgbDART: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_svmRadial <- data.frame('prediction' = predict_svmRadial,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_svmRadial <- melt(df_predict_svmRadial, id.vars = 'time')
+
+ggplot(df_predict_svmRadial, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('svmRadial: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_knn <- data.frame('prediction' = predict_knn,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_knn <- melt(df_predict_knn, id.vars = 'time')
+
+ggplot(df_predict_knn, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('knn: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_earth <- data.frame('prediction' = predict_earth,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_earth <- melt(df_predict_earth, id.vars = 'time')
+
+ggplot(df_predict_earth, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('EARTH: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+```
+
+##MULTIPLE METHODS:CORR-OVERALL
+Reducing the number of features to only those that have a correlation factor of 0.8 or greater.
+
+```{r ensemble corrall, echo = TRUE}
+library(caret)
+library(caretEnsemble)
+
+#tuneGrid for the various models
+
+grid_rf <- expand.grid(.mtry = c(1,2,3,4,5))
+
+grid_svmRadial <- expand.grid(sigma = c(.01, .015, 0.2), C = c(0.75, 0.9, 1, 1.1, 1.25))
+
+#Make an algorithm list for caretList
+algorithmList <- c("xgbDART", "knn", "earth")
+
+
+# Stacking Algorithms - Run multiple algos in one call.
+trainControl <- trainControl(method="repeatedcv", 
+                             number=5, 
+                             repeats=3,
+                             savePredictions="final",
+                             index=createFolds(trainData$total_cases, 5))
+
+set.seed(100)
+
+models.corrall <- caretList(total_cases ~ ndvi_ne +
+                           ndvi_nw +
+                           ndvi_se +
+                           precipitation_amt_mm +
+                           reanalysis_air_temp_k +
+                           reanalysis_precip_amt_kg_per_m2 +
+                           reanalysis_relative_humidity_percent +
+                           reanalysis_tdtr_k + 
+                           station_diur_temp_rng_c +
+                           station_max_temp_c +
+                           station_precip_mm,
+                         data=trainData[,5:25], 
+                         trControl=trainControl,
+                         methodList=algorithmList,
+                         tuneList=list(
+                      rf=caretModelSpec(method="rf", tuneGrid=grid_rf),
+                      svmRadial=caretModelSpec(method="svmRadial", tuneGrid=grid_svmRadial)))
+
+results.corrall <- resamples(models.corrall)
+
+summary(results.corrall)
+
+# Box plots to compare models
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(results.corrall, scales=scales)
+dotplot(results.corrall)
+
+# correlation between results
+modelCor(results.corrall)
+```
+
+##MAE and RMSE for CORR-OVERALL MODELS
+```{r MAE RMSE CORRALL, echo = TRUE}
+# Step 3: Predict on testData and Compute the confusion matrix
+predict_earth <- predict(models.corrall$earth, testData4)
+predict_rf <- predict(models.corrall$rf, testData4)
+predict_xgbDART <- predict(models.corrall$xgbDART, testData4)
+predict_svmRadial <- predict(models.corrall$svmRadial, testData4)
+predict_knn <- predict(models.corrall$knn, testData4)
+
+# Evaluate RMSE and MAE on the test data
+rmse.sj.earth <- sqrt(mean((predict_earth-testData4$total_cases)^2))
+rmse.sj.rf <- sqrt(mean((predict_rf-testData4$total_cases)^2))
+rmse.sj.xgbDART <- sqrt(mean((predict_xgbDART-testData4$total_cases)^2))
+rmse.sj.svmRadial <- sqrt(mean((predict_svmRadial-testData4$total_cases)^2))
+rmse.sj.knn <- sqrt(mean((predict_knn-testData4$total_cases)^2))
+
+mae.sj.earth <- mean(abs(predict_earth-testData4$total_cases))
+mae.sj.rf <- mean(abs(predict_rf-testData4$total_cases))
+mae.sj.xgbDART <- mean(abs(predict_xgbDART-testData4$total_cases))
+mae.sj.svmRadial <- mean(abs(predict_svmRadial-testData4$total_cases))
+mae.sj.knn <- mean(abs(predict_knn-testData4$total_cases))
+
+#Build a dataframe to put the MAE and RMSE
+performetrics <- data.frame()
+
+
+methods <- c("mlp", "earth", "rf", "xgbDART", "svmRadial", "knn")
+
+
+performetrics[1,1] <- methods[1]
+performetrics[2,1] <- methods[2]
+performetrics[3,1] <- methods[3]
+performetrics[4,1] <- methods[4]
+performetrics[5,1] <- methods[5]
+performetrics[6,1] <- methods[6]
+
+
+performetrics[1,2] <- rmse.sj.mlp
+performetrics[2,2] <- rmse.sj.earth
+performetrics[3,2] <- rmse.sj.rf
+performetrics[4,2] <- rmse.sj.xgbDART
+performetrics[5,2] <- rmse.sj.svmRadial
+performetrics[6,2] <- rmse.sj.knn
+
+performetrics[1,3] <- mae.sj.mlp  
+performetrics[2,3] <- mae.sj.earth 
+performetrics[3,3] <- mae.sj.rf  
+performetrics[4,3] <- mae.sj.xgbDART  
+performetrics[5,3] <- mae.sj.svmRadial  
+performetrics[6,3] <- mae.sj.knn  
+
+colnames(performetrics)[1]<- "Method"
+colnames(performetrics)[2]<- "RMSE"
+colnames(performetrics)[3]<- "MAE"
+
+
+performetrics
+
+```
+##GRAPH for CORRALL: ACTUAL VS PREDICTED
+```{r graph corroverall, echo = TRUE}
+#Plot the prediction for NBR
+df_predict_rf <- data.frame('prediction' = predict_rf,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_rf <- melt(df_predict_rf, id.vars = 'time')
+
+ggplot(df_predict_rf, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('rf: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_xgbDART <- data.frame('prediction' = predict_xgbDART,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_xgbDART <- melt(df_predict_xgbDART, id.vars = 'time')
+
+ggplot(df_predict_xgbDART, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('xgbDART: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_svmRadial <- data.frame('prediction' = predict_svmRadial,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_svmRadial <- melt(df_predict_svmRadial, id.vars = 'time')
+
+ggplot(df_predict_svmRadial, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('svmRadial: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_knn <- data.frame('prediction' = predict_knn,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_knn <- melt(df_predict_knn, id.vars = 'time')
+
+ggplot(df_predict_knn, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('knn: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+#Plot the prediction for NBR
+df_predict_earth <- data.frame('prediction' = predict_earth,
+                                   'actual' = testData4$total_cases,
+                                   'time' = testData4$week_start_date)
+
+df_predict_earth <- melt(df_predict_earth, id.vars = 'time')
+
+ggplot(df_predict_earth, aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  ggtitle('EARTH: Dengue predicted Cases vs. Actual Cases (City: SJ) ')
+
+```
+
+
+
+##COMBINED MODELS
+```{r combined, echo = TRUE}
+# Create the trainControl
+set.seed(100)
+library(caret)
+library(caretEnsemble)
+stackControl <- trainControl(method="repeatedcv", 
+                             number=5, 
+                             repeats=3,
+                             savePredictions="final",
+                             index=createFolds(trainData$total_cases, 5))
+
+# Ensemble the predictions of `models` to form a new combined prediction based on glm
+stack <- caretStack(models, method="glm", trControl=stackControl)
+stack.corr <- caretStack(models.corr, method="glm", trControl=stackControl)
+stack.corrall <- caretStack(models.corrall, method="glm", trControl=stackControl)
+
+print(stack)
+print(stack.corr)
+print(stack.corrall)
+# Predict on testData
+stack_predicteds <- predict(stack, newdata=testData4[,5:25])
+stack_predicteds.corr <- predict(stack.corr, newdata=testData4[,5:25])
+stack_predicteds.corrall <- predict(stack.corrall, newdata=testData4[,5:25])
+
+# Evaluate RMSE and MAE on the validation data
+RMSE.sj.stack <- sqrt(mean((stack_predicteds - testData4$total_cases)^2))
+print(paste("RMSE.sj.stack:", RMSE.sj.stack, sep=" "))
+
+MAE.sj.stack <- mean(abs(stack_predicteds -testData4$total_cases))
+print(paste("MAE.sj.stack:", MAE.sj.stack, sep = " "))
+
+# CORR Evaluate RMSE and MAE on the validation data
+RMSE.sj.stack.corr <- sqrt(mean((stack_predicteds.corr - testData4$total_cases)^2))
+print(paste("RMSE.sj.stack.corr:", RMSE.sj.stack.corr, sep=" "))
+
+MAE.sj.stack.corr <- mean(abs(stack_predicteds.corr -testData4$total_cases))
+print(paste("MAE.sj.stack.corr:", MAE.sj.stack.corr, sep = " "))
+
+# CORRALL Evaluate RMSE and MAE on the validation data
+RMSE.sj.stack.corrall <- sqrt(mean((stack_predicteds.corrall - testData4$total_cases)^2))
+print(paste("RMSE.sj.stack.corrall:", RMSE.sj.stack.corrall, sep=" "))
+
+MAE.sj.stack.corrall <- mean(abs(stack_predicteds.corrall -testData4$total_cases))
+print(paste("MAE.sj.stack.corrall:", MAE.sj.stack.corrall, sep = " "))
+
+```
+
+
+
+
+
+
