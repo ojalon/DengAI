@@ -97,7 +97,7 @@ rm(skimmed)
 ```{r lead}
 trainData <- trainData %>%
   arrange(year, weekofyear) %>%
-  mutate(total_cases = lead(total_cases))
+  mutate(total_cases = lead(total_cases, 2))
 
 ```
 
@@ -303,7 +303,7 @@ grid_rf <- expand.grid(.mtry = c(2, 4, 6, 8, 10, 12, 14, 16, 18, 20))
 grid_svmRadial <- expand.grid(sigma = c(.01, .015, 0.2), C = c(0.75, 0.9, 1, 1.1, 1.25))
 
 #Make an algorithm list for caretList
-algorithmList <- c("earth", "xgbDART", "knn")
+algorithmList <- c("earth", "xgbDART", "knn", "svmLinear")
 
 
 # Stacking Algorithms - Run multiple algos in one call.

@@ -295,6 +295,9 @@ grid_rf <- expand.grid(.mtry = c(2, 4, 6, 8, 10, 12, 14, 16, 18, 20))
 
 grid_svmRadial <- expand.grid(sigma = c(.01, .015, 0.2), C = c(0.75, 0.9, 1, 1.1, 1.25))
 
+grid_svmLinear <- expand.grid(C = c(0.75, 0.9, 1, 1.1, 1.25))
+
+
 #Make an algorithm list for caretList
 algorithmList <- c("earth", "xgbDART", "knn")
 
@@ -312,8 +315,7 @@ models <- caretList(total_cases ~ .,
                     trControl=trainControl,
                     methodList=algorithmList,
                     tuneList=list(
-                      rf=caretModelSpec(method="rf", tuneGrid=grid_rf),
-                      svmRadial=caretModelSpec(method="svmRadial", tuneGrid=grid_svmRadial)))
+                      rf=caretModelSpec(method="rf", tuneGrid=grid_rf),svmLinear=caretModelSpec(method="svmLinear", tuneGrid=grid_svmLinear),                      svmRadial=caretModelSpec(method="svmRadial", tuneGrid=grid_svmRadial)))
 
 results <- resamples(models)
 
@@ -337,25 +339,29 @@ predict_rf <- predict(models$rf, testData4)
 predict_xgbDART <- predict(models$xgbDART, testData4)
 predict_svmRadial <- predict(models$svmRadial, testData4)
 predict_knn <- predict(models$knn, testData4)
+predict_svmLinear <- predict(models$svmLinear, testData4)
 
 # Evaluate RMSE and MAE on the test data
 rmse.sj.earth <- sqrt(mean((predict_earth-testData4$total_cases)^2))
 rmse.sj.rf <- sqrt(mean((predict_rf-testData4$total_cases)^2))
 rmse.sj.xgbDART <- sqrt(mean((predict_xgbDART-testData4$total_cases)^2))
 rmse.sj.svmRadial <- sqrt(mean((predict_svmRadial-testData4$total_cases)^2))
+rmse.sj.svmLinear <- sqrt(mean((predict_svmLinear-testData4$total_cases)^2))
+
 rmse.sj.knn <- sqrt(mean((predict_knn-testData4$total_cases)^2))
 
 mae.sj.earth <- mean(abs(predict_earth-testData4$total_cases))
 mae.sj.rf <- mean(abs(predict_rf-testData4$total_cases))
 mae.sj.xgbDART <- mean(abs(predict_xgbDART-testData4$total_cases))
 mae.sj.svmRadial <- mean(abs(predict_svmRadial-testData4$total_cases))
+mae.sj.svmLinear <- mean(abs(predict_svmLinear-testData4$total_cases))
 mae.sj.knn <- mean(abs(predict_knn-testData4$total_cases))
 
 #Build a dataframe to put the MAE and RMSE
 performetrics <- data.frame()
 
 
-methods <- c("mlp", "earth", "rf", "xgbDART", "svmRadial", "knn")
+methods <- c("mlp", "earth", "rf", "xgbDART", "svmRadial", "knn", "svmLinear")
 
 
 performetrics[1,1] <- methods[1]
@@ -364,7 +370,7 @@ performetrics[3,1] <- methods[3]
 performetrics[4,1] <- methods[4]
 performetrics[5,1] <- methods[5]
 performetrics[6,1] <- methods[6]
-
+performetrics[7,1] <- methods[7]
 
 performetrics[1,2] <- rmse.sj.mlp
 performetrics[2,2] <- rmse.sj.earth
@@ -372,6 +378,7 @@ performetrics[3,2] <- rmse.sj.rf
 performetrics[4,2] <- rmse.sj.xgbDART
 performetrics[5,2] <- rmse.sj.svmRadial
 performetrics[6,2] <- rmse.sj.knn
+performetrics[7,2] <- rmse.sj.svmLinear
 
 performetrics[1,3] <- mae.sj.mlp  
 performetrics[2,3] <- mae.sj.earth 
@@ -379,6 +386,7 @@ performetrics[3,3] <- mae.sj.rf
 performetrics[4,3] <- mae.sj.xgbDART  
 performetrics[5,3] <- mae.sj.svmRadial  
 performetrics[6,3] <- mae.sj.knn  
+performetrics[7,3] <- mae.sj.svmLinear
 
 colnames(performetrics)[1]<- "Method"
 colnames(performetrics)[2]<- "RMSE"
