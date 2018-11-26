@@ -106,9 +106,9 @@ grid.arrange(cor1, nrow = 1)
 ```
 
 
-##NORMALIZE DATA
-```{r normalize, echo = TRUE}
-preProcess_range_model <- preProcess(trainData[,5:25], method='range')
+##STANDARDIZE DATA
+```{r standardize, echo = TRUE}
+preProcess_range_model <- preProcess(trainData[,5:25], method=c("center", "scale"))
 trainData <- predict(preProcess_range_model, newdata = trainData)
 
 # Append the Y variable
@@ -118,14 +118,14 @@ apply(trainData[, 2:25], 2, FUN=function(x){c('min'=min(x), 'max'=max(x))})
 
 rm(preProcess_range_model)
 ```
-#PREPARE TEST DATASET
+#PREPARE VALIDATION DATASET
 ```{r prepare test, echo = TRUE}
 # Step 1: Impute missing values 
 testData3 <- predict(preProcess_missingdata_model, testData)  
 anyNA(testData3)
 
 # Step 3: Transform the features to range between 0 and 1
-preProcess_range_model <- preProcess(testData3[,5:25], method='range')
+preProcess_range_model <- preProcess(testData3[,5:25], method=c("center", "scale"))
 testData4 <- predict(preProcess_range_model, newdata = testData3)
 
 # Append the Y variable
@@ -1852,9 +1852,9 @@ grid.arrange(cor1, nrow = 1)
 ```
 
 
-##NORMALIZE DATA
-```{r normalize2, echo = TRUE}
-preProcess_range_model <- preProcess(trainData[,5:25], method='range')
+##STANDARDIZE DATA
+```{r standardize2, echo = TRUE}
+preProcess_range_model <- preProcess(trainData[,5:25], method=c("center", "scale"))
 trainData <- predict(preProcess_range_model, newdata = trainData)
 
 # Append the Y variable
@@ -1864,14 +1864,14 @@ apply(trainData[, 2:25], 2, FUN=function(x){c('min'=min(x), 'max'=max(x))})
 
 rm(preProcess_range_model)
 ```
-#PREPARE TEST DATASET
+#PREPARE VALIDATION DATASET
 ```{r prepare test2, echo = TRUE}
 # Step 1: Impute missing values 
 testData3 <- predict(preProcess_missingdata_model, testData)  
 anyNA(testData3)
 
 # Step 3: Transform the features to range between 0 and 1
-preProcess_range_model <- preProcess(testData3[,5:25], method='range')
+preProcess_range_model <- preProcess(testData3[,5:25], method=c("center", "scale"))
 testData4 <- predict(preProcess_range_model, newdata = testData3)
 
 # Append the Y variable
