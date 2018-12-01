@@ -106,9 +106,9 @@ grid.arrange(cor1, nrow = 1)
 ```
 
 
-##STANDARDIZE DATA
+##NORMALIZE DATA
 ```{r standardize, echo = TRUE}
-preProcess_range_model <- preProcess(trainData[,5:25], method=c("center", "scale"))
+preProcess_range_model <- preProcess(trainData[,5:25], method=c("range"))
 trainData <- predict(preProcess_range_model, newdata = trainData)
 
 # Append the Y variable
@@ -125,7 +125,7 @@ testData3 <- predict(preProcess_missingdata_model, testData)
 anyNA(testData3)
 
 # Step 3: Transform the features to range between 0 and 1
-preProcess_range_model <- preProcess(testData3[,5:25], method=c("center", "scale"))
+preProcess_range_model <- preProcess(testData3[,5:25], method=c("range"))
 testData4 <- predict(preProcess_range_model, newdata = testData3)
 
 # Append the Y variable
@@ -180,7 +180,7 @@ mae.sj.baseline2
 ```
 #PREDICTIVE MODELS
 ##MULTIPLE METHODS:CORR-TOTAL_CASES
-Reducing the number of features to only those that are most correlated to tota_cases
+Reducing the number of features to only those that are most correlated to total_cases
 ```{r ensemble corr_tc, echo = TRUE}
 library(caret)
 library(caretEnsemble)
@@ -1852,9 +1852,9 @@ grid.arrange(cor1, nrow = 1)
 ```
 
 
-##STANDARDIZE DATA
+##NORMALIZE DATA
 ```{r standardize2, echo = TRUE}
-preProcess_range_model <- preProcess(trainData[,5:25], method=c("center", "scale"))
+preProcess_range_model <- preProcess(trainData[,5:25], method=c("range"))
 trainData <- predict(preProcess_range_model, newdata = trainData)
 
 # Append the Y variable
@@ -1871,7 +1871,7 @@ testData3 <- predict(preProcess_missingdata_model, testData)
 anyNA(testData3)
 
 # Step 3: Transform the features to range between 0 and 1
-preProcess_range_model <- preProcess(testData3[,5:25], method=c("center", "scale"))
+preProcess_range_model <- preProcess(testData3[,5:25], method=c("range"))
 testData4 <- predict(preProcess_range_model, newdata = testData3)
 
 # Append the Y variable
