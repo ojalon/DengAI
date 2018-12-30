@@ -4,25 +4,34 @@ author: "Oren Jalon"
 date: "November 19, 2018"
 output: html_document
 ---
+# DENGAI
+
+The following code is my submission to the DengAI competition on DrivenData.org.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-#DATA PREPARATION
-##LIBRARIES
+# DATA PREPARATION
+
+Let's begin by putting in the libraries we need and importing the data
+
+## LIBRARIES
 ```{r library, echo = TRUE}
 library(tidyverse)
 library(caret)
 library(reshape2)
 ```
-##IMPORT DATA
+## IMPORT DATA
+
+Make sure that the files are in the same working directory as this RMD file (-- use getwd() to check --)
+
 ```{r inport, echo = TRUE, message = FALSE}
 
-d_train <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_train.csv")
-d_labels <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_labels_train.csv")
-d_test <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_train.csv")
+d_train <- read_csv(file = "dengue_features_train.csv")
+d_labels <- read_csv(file = "dengue_labels_train.csv")
+d_test <- read_csv(file = "dengue_features_train.csv")
 ```
-###Rescale the variables so that it is all in Celcius and mm
+### Rescale the variables so that it is all in Celcius and mm
 ```{r rescaling, echo=TRUE}
 d_train$reanalysis_dew_point_temp_k <- d_train$reanalysis_dew_point_temp_k - 273.15
 d_test$reanalysis_dew_point_temp_k <- d_test$reanalysis_dew_point_temp_k - 273.15
@@ -50,35 +59,29 @@ summary(d_train$reanalysis_min_air_temp_k)
 summary(d_train$reanalysis_avg_temp_k)
 summary(d_train$reanalysis_tdtr_k)
 ```
+We seem to have some missing values but we will investigate this more later.
 
+Now let's merge the datasets (train and labels) so that we can have the the features and the classifier in the same place.  We will also split the dataset by city.  Finally, we will merge the test and training set so that we can see what all the climate data looks like across the entire recorded period.  This is just for exploration and will not be used for our analysis later.
 
-##MERGE TRAIN & LABELS
+## MERGE TRAIN & LABELS
 ```{r add labels, echo=TRUE}
 df <- merge(d_train, d_labels, by=c("city","year","weekofyear"))
 
 ```
-###FILTER BY CITY (SJ, IQ)
+## FILTER BY CITY (SJ, IQ)
 ```{r sj & iq test, echo=TRUE}
 
 sj <- df[df$city == "sj",] 
 iq <- df[df$city == "iq",] 
 ```
-##MERGE TRAIN & TEST
-Merge test and train set without the total_cases
-```{r full, echo=TRUE}
-df_all <- rbind(d_train,d_test)
-```
-###FILTER BY CITY (SJ_ALL, IQ_ALL)
-```{r sj & iq testall, echo=TRUE}
-iq_all <- df_all[df_all$city == 'iq', ]
-sj_all <- df_all[df_all$city == 'sj', ]
-```
 
-#PRELIMINARY DATA PREPARATION
 
-This section includes importing the data, creating of new variables and establishing the dataframes for the initial analysis
+# INITIAL & EXPLORATORY ANALYSIS
 
-##Summary Stats
+Let's review the summary statistics for the dataset.  We will use the skimr library to get a cleaner view of the data.
+
+
+## Summary Stats
 ```{r summary, echo=TRUE}
 library(skimr)
 
@@ -88,49 +91,24 @@ skimmed.sj
 skimmed.iq <- skim_to_wide(iq[,c(-1,-4)])
 skimmed.iq
 
-skimmed.sj_all <- skim_to_wide(sj_all[,c(-1,-4)])
-skimmed.sj_all
-
-skimmed.iq_all <- skim_to_wide(iq_all[,c(-1,-4)])
-skimmed.iq_all
-
-rm(skimmed.sj, skimmed.iq, skimmed.iq_all, skimmed.sj_all)
+rm(skimmed.sj, skimmed.iq)
 
 ```
-#DATAFRAME CLEANUP 1
-Clean up all the extra dataframes produced during the exploratory analysis
 
-```{r df cleanup 1}
-#rm(d_test,
-   # d_train,
-   # dengue_labels_train,
-   # sj_test,
-   # sj_features_train,
-   # sj_labels_train,
-   # iq_test,
-   # iq_features_train,
-   # iq_labels_train,
-   # df,
-   # iq,
-   # sj,
-   # df,
-   # submission_format
-   #  )
-
-
-
-```
-#INITIAL & EXPLORATORY ANALYSIS
+We can see that SJ has 936 weeks with a mean of 34.2 cases per week.  IQ has 520 weeks with a mean of 7.6 weekly cases.  There are no missing values for our total cases classifer but there are climate data features which have many missing values.  
 
 In this section, we summary the value of the data frames (together and by city).  We also create the following graphs
 
-1. Frequency histograms
-2. Bivariate analysis - line graphs for time analysis
-3. Bivariate analysis - scatterplot for total_cases by other variables
-4. Wilcoxon test for test of means between cities
+1.  Wilcoxon test for test of means between cities
+2. Frequency histograms
+3. Bivariate analysis - line graphs for time analysis
+4. Bivariate analysis - box plot by week for determining seasonality
+5. Bivariate analysis - total cases by time and by week
+6. Bivariate analysis - scatterplot for total_cases by other variables
 
-###Compare the means between same variables in different cities
-We can see that the same feature is significantly different in each city 
+## Compare the means between same variables in different cities
+
+We need to know if the two cities should be analysed together or separately.  Let's do a wilcoxon test (non-parametric) to compare the means of the same climate features between the two different cities. 
 
 ```{r means between cities, echo = TRUE}
 cnames <- colnames(sj)
@@ -142,9 +120,12 @@ for (i in 5:(ncol(sj))){
 
 rm(cnames, i, wilt)
 ```
+We can see that the same feature is significantly different in each city (look at the p-values) 
 
-###GRAPH: Frequency histogram of all variables in training set for **SJ**
-Same as above but only for SJ.
+## GRAPH: Frequency histogram of all variables in training set for **SJ**
+
+Let's review the distribution of each of the variables.  Some appear to be normally distributed while others are not.
+
 ```{r graph histogram SJ, echo=TRUE}
 cnames <- colnames(sj) 
 par(mfrow=c(1,2))
@@ -159,8 +140,10 @@ rm(cnames, i)
 
 ```
 
-###GRAPH: Frequency histogram of all variables in training set for **IQ**
+## GRAPH: Frequency histogram of all variables in training set for **IQ**
+
 Same as above but only for IQ.
+
 ```{r graph histogram IQ, echo=TRUE}
 cnames <- colnames(df) 
 par(mfrow=c(1,2))
@@ -175,16 +158,18 @@ rm(cnames, i)
 
 ```
 
-###GRAPH: Climate variables by time for **SJ**
-Includes all the data from test and training set by time for SJ therefore the total_cases in not included.  Total_cases by time is done separately.
+## GRAPH: Climate variables by time for **SJ**
+
+Here we are reviewing the data by time for SJ
+  
 
 ```{r graph sj climate by time, echo=TRUE}
-cnames <- colnames(sj_all) 
+cnames <- colnames(sj) 
 par(mfrow=c(2,2))
-for (i in 5:(ncol(sj_all))) {
-  gg1 <- ggplot(sj_all,
+for (i in 5:(ncol(sj))) {
+  gg1 <- ggplot(sj,
                 aes(x=week_start_date, 
-                    y = sj_all[,i])) +
+                    y = sj[,i])) +
     geom_line() +
     ylab(cnames[i]) +
     ggtitle(paste(cnames[i])) 
@@ -193,18 +178,22 @@ for (i in 5:(ncol(sj_all))) {
   }
 
 rm(cnames, i, gg1)
+
+
 ```
 
-###GRAPH: Climate variables by time for **IQ**
-Includes all the data from test and training set by time for I therefore the total_cases in not included.  Total_cases by time is done separately.
+## GRAPH: Climate variables by time for **IQ**
+
+Here we are reviewing the data by time for IQ
+
 ```{r graph iq climate by time, echo=TRUE}
 
-cnames <- colnames(iq_all) 
+cnames <- colnames(iq) 
 par(mfrow=c(2,2))
-for (i in 5:(ncol(iq_all))) {
-  gg1 <- ggplot(iq_all,
+for (i in 5:(ncol(iq))) {
+  gg1 <- ggplot(iq,
                 aes(x=week_start_date, 
-                    y = iq_all[,i])) +
+                    y = iq[,i])) +
     geom_line() +
     ylab(cnames[i]) +
     ggtitle(paste(cnames[i])) 
@@ -216,18 +205,19 @@ rm(cnames, i, gg1)
 
 ```
 
-###GRAPH: Climate variables by week for **SJ**
-Includes all the data from test and training set by time for SJ therefore the total_cases in not included.  Total_cases by time is done separately.
+## GRAPH: Climate variables by week for **SJ**
+
+Now let's review the climate variables by week to determine seasonality of the data (SJ ONLY)
 
 ```{r graph sj by week, echo=TRUE}
 library(ggplot2)
 
-cnames <- colnames(sj_all) 
+cnames <- colnames(sj) 
 par(mfrow=c(2,2))
-for (i in 5:(ncol(sj_all))) {
+for (i in 5:(ncol(sj))) {
   gg1 <- ggplot(sj,
                 aes(x=weekofyear, 
-                    y = sj_all[,i], 
+                    y = sj[,i], 
                     group = weekofyear)) +
     geom_boxplot() +
     scale_x_continuous(breaks=seq(1,52,2)) +
@@ -241,17 +231,19 @@ rm(cnames, i, gg1)
 
 ```
 
-###GRAPH: Climate variables by week for **IQ**
-Includes all the data from test and training set by time for I therefore the total_cases in not included.  Total_cases by time is done separately.
+## GRAPH: Climate variables by week for **IQ**
+
+Now let's review the climate variables by week to determine seasonality of the data (IQ ONLY)
+
 ```{r graph iq by week, echo=TRUE}
 library(ggplot2)
 
-cnames <- colnames(iq_all) 
+cnames <- colnames(iq) 
 par(mfrow=c(2,2))
-for (i in 5:(ncol(iq_all))) {
-  gg1 <- ggplot(iq_all,
+for (i in 5:(ncol(iq))) {
+  gg1 <- ggplot(iq,
                 aes(x=weekofyear, 
-                    y = iq_all[,i], 
+                    y = iq[,i], 
                     group = weekofyear)) +
     geom_boxplot() +
     scale_x_continuous(breaks=seq(1,52,2)) +
@@ -265,8 +257,10 @@ rm(cnames, i, gg1)
 
 ```
 
-###GRAPH: Total_cases by time for **SJ**, **IQ**
-Line graph of all data by total cases.  This uses only the training set.
+## GRAPH: Total_cases by time for **SJ**, **IQ**
+
+Same as above but a little more descriptive
+
 ```{r graph total cases time analysis, echo=TRUE}
 library(ggplot2)
 
@@ -288,7 +282,7 @@ ggplot(data = df[df$city == "iq",], aes(x=week_start_date, y=total_cases)) +
 
 ```
 
-###GRAPH: Average Total_cases by week for **SJ**, **IQ**
+## GRAPH: Average Total_cases by week for **SJ**, **IQ**
 Line graph of all data by total cases.  This uses only the training set.
 ```{r graph total cases by week, echo=TRUE}
 library(ggplot2)
@@ -337,7 +331,7 @@ print(gg4)
 
 ```
 
-###GRAPH: Total_cases by climate variables for **SJ**
+## GRAPH: Total_cases by climate variables for **SJ**
 Same as above but for SJ
 ```{r graph SJ total cases analysis, echo=TRUE}
 
@@ -359,7 +353,7 @@ rm(cnames, i)
 
 ```
 
-###GRAPH: Total_cases by climate variables for **IQ**
+## GRAPH: Total_cases by climate variables for **IQ**
 Same as above but for IQ.
 ```{r graph IQ total cases analysis, echo=TRUE}
 
@@ -382,141 +376,8 @@ rm(cnames, i)
 ```
 
 
-##Compare similar variable values within the dataset
-There are several variables which appear to be the same feature but taken from a different source.  For example, station_precip_mm and	precipitation_amt_mm and reanalysis_sat_precip_amt_mm all appear to be the same "Total Precipitation value"  Only one should be kept if they are the same.
-
-###Difference in max air temp
-"station_max_temp_c"" and "reanalysis_max_air_temp_k" (scaled to Celcius)
-```{r max air, echo= TRUE}
-library(ggplot2)
-
-#generate a difference in max temp variable
-sj$max_air_diff <- sj$station_max_temp_c - sj$reanalysis_max_air_temp_k
-
-#barplot the difference by year
-ggplot(sj,aes(x=year, y=max_air_diff))+
-  geom_bar(stat='identity')
-
-#box plot difference by year
-ggplot(sj, aes(x=year, y = max_air_diff, group = year)) +   geom_boxplot() 
-
-#Add month to the dataframe
-sj$month <- as.POSIXlt(sj$week_start_date)$mon +1
-
-#box plot difference by month
-ggplot(sj, aes(x=month, y = max_air_diff, group = month)) +   geom_boxplot() + scale_x_continuous(breaks=seq(1,12,1))
-
-sj$max_air_diff <- NULL
-sj$month <- NULL
-```
-
-###Difference in min air temp
-"station_min_temp_c"" and "reanalysis_min_air_temp_k" (scaled to Celcius)
-```{r min air, echo= TRUE}
-library(ggplot2)
-
-#generate a difference in max temp variable
-sj$min_air_diff <- sj$station_min_temp_c - sj$reanalysis_min_air_temp_k
-
-#barplot the difference by year
-ggplot(sj,aes(x=year, y=min_air_diff))+
-  geom_bar(stat='identity')
-
-#box plot difference by year
-ggplot(sj, aes(x=year, y = min_air_diff, group = year)) +   geom_boxplot() 
-
-#Add month to the dataframe
-sj$month <- as.POSIXlt(sj$week_start_date)$mon +1
-
-#box plot difference by month
-ggplot(sj, aes(x=month, y = min_air_diff, group = month)) +   geom_boxplot() + scale_x_continuous(breaks=seq(1,12,1))
-
-sj$min_air_diff <- NULL
-sj$month <- NULL
-```
-
-###Difference in average air temp
-"station_avg_temp_c"" and "reanalysis_avg_temp_k" (scaled to Celcius)
-```{r avg air, echo= TRUE}
-library(ggplot2)
-
-#generate a difference in max temp variable
-sj$avg_air_diff <- sj$station_avg_temp_c - sj$reanalysis_avg_temp_k
-
-#barplot the difference by year
-ggplot(sj,aes(x=year, y=avg_air_diff))+
-  geom_bar(stat='identity')
-
-#box plot difference by year
-ggplot(sj, aes(x=year, y = avg_air_diff, group = year)) +   geom_boxplot() 
-
-#Add month to the dataframe
-sj$month <- as.POSIXlt(sj$week_start_date)$mon +1
-
-#box plot difference by month
-ggplot(sj, aes(x=month, y = avg_air_diff, group = month)) +   geom_boxplot() + scale_x_continuous(breaks=seq(1,12,1))
-
-sj$avg_air_diff <- NULL
-sj$month <- NULL
-```
-
-###Difference in total precipitation
-"station_precip_mm", "precipitation_amt_mm", "reanalysis_sat_precip_amt_mm", "reanalysis_precip_amt_kg_per_m2" 
-
-```{r total precip, echo= TRUE}
-library(ggplot2)
-
-precip <- c("station_precip_mm", "precipitation_amt_mm", "reanalysis_sat_precip_amt_mm", "reanalysis_precip_amt_kg_per_m2")
-
-#Add month to the dataframe
-sj$month <- as.POSIXlt(sj$week_start_date)$mon +1
-
-
-
-for (i in 1:3){
-  par(mfrow=c(1,3))
-  #generate the first variable in the list
-  p1 <- precip[i]
-  ind1 <- which(colnames(sj)==p1)
-  for (j in ((i+1):4)){
-    #generate the next variable in the list
-    p2 <- precip[j]
-  ind2 <- which(colnames(sj)==p2)
-  #generate a difference variable 
-   sj$diff <- sj[,ind1] - sj[,ind2]
-   
-   #barplot the difference by year
-   gg1 <-ggplot(sj,
-                 aes(x=year, y=diff))+
-      geom_bar(stat = "identity", fill="steelblue") + 
-      ggtitle(paste(p1, "&", p2))
-    print(gg1)
-    
-    #box plot the difference by year
-   gg2 <-ggplot(sj,
-                 aes(x=year, y=diff, group = year)) +
-      geom_boxplot() + 
-      ggtitle(paste(p1, "&", p2))
-    print(gg2)
-    
-    #box plot difference by month
-    gg3 <- ggplot(sj, 
-                  aes(x=month, y = diff, group = month)) +
-      geom_boxplot() +
-      scale_x_continuous(breaks=seq(1,12,1)) +
-      ggtitle(paste(p1, "&", p2))
-    print(gg3)
-  }
-}
-
-sj$diff <- NULL
-sj$month <- NULL 
-
-rm(gg1, gg2, gg3, i, ind1, ind2, j, p1, p2, precip)
-
-```
-#ANALYSIS OF OUTLIERS
-###GRAPH: Boxplot of climate variables (test and train)
+# ANALYSIS OF OUTLIERS
+### GRAPH: Boxplot of climate variables (test and train)
 Boxplot includes test and training set - NA still included
 
 ```{r graph boxplot, echo=TRUE}
@@ -532,16 +393,6 @@ for (i in 5:(ncol(df))) {
 }
 rm(cnames, i, p)
 ```
-
-###GRAPH: Boxplot of total cases
-```{r graph boxplot total cases, echo=TRUE}
-library(ggplot2)
-ggplot(df, aes(x=city, y = total_cases, fill = city)) + 
-  geom_boxplot() +
-   labs(title = "Boxplot of Total_cases",
-       x = "City", y = "Total_cases")
-```
-
 
 
 

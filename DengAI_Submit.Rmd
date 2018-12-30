@@ -8,29 +8,29 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-#DATA PREPARATION
-##LIBRARIES
+# DATA PREPARATION
+## LIBRARIES
 ```{r library, echo = TRUE}
 library(tidyverse)
 library(caret)
 library(reshape2)
 ```
-##IMPORT DATA
+## IMPORT DATA
 ```{r inport, echo = TRUE, message = FALSE}
 
-d_train <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_train.csv")
-d_labels <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_labels_train.csv")
-d_test <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/dengue_features_test.csv")
+d_train <- read_csv("dengue_features_train.csv")
+d_labels <- read_csv("dengue_labels_train.csv")
+d_test <- read_csv("dengue_features_test.csv")
 
 ```
-##MERGE TRAIN and LABELS
+## MERGE TRAIN and LABELS
 ```{r add labels, echo=TRUE}
 library(tidyverse)
 df <- d_train %>%
   inner_join(d_labels, by = (c("city","year","weekofyear")))
 
 ```
-##FILTER BY CITY
+## FILTER BY CITY
 ```{r sj & iq test, echo=TRUE}
 library(tidyverse)
 
@@ -42,18 +42,18 @@ iq <- df %>%
   filter (city == "iq")
 
 ```
-##SPLIT SUBMISSION FILE BY CITY
+## SPLIT SUBMISSION FILE BY CITY
 ```{r submission, echo=TRUE}
-d_submit <- read_csv("D:/Google Drive/RYERSON/CKME 136/DengAI/DATASET/submission_format.csv")
+d_submit <- read_csv("submission_format.csv")
 #splitting by city and dropping week of year
 sj_submit <- d_submit[d_submit$city == "sj",]
 iq_submit <- d_submit[d_submit$city == "iq",]
 
 ```
 
-#***SJ ANALYSIS***
-#PREPROCESSING
-##TRAINING AND TEST SETS(VALIDATION)
+# ***SJ ANALYSIS***
+# PREPROCESSING
+## TRAINING AND TEST SETS(VALIDATION)
 ```{r preprocessing_sj, echo = TRUE}
 
 # Create the training and test datasets
@@ -73,7 +73,7 @@ x = trainData[, 1:24]
 y = trainData$total_cases
 
 ```
-##MISSING VALUES
+## MISSING VALUES
 ```{r missing, echo = TRUE}
 # Create the knn imputation model on the training data
 preProcess_missingdata_model <- preProcess(trainData[,5:25], method='knnImpute')
@@ -86,7 +86,7 @@ anyNA(trainData)
 
 
 ```
-##NORMALIZE DATA
+## NORMALIZE DATA
 ```{r standardize, echo = TRUE}
 preProcess_range_model <- preProcess(trainData[,5:25], method=c("range"))
 trainData <- predict(preProcess_range_model, newdata = trainData)
@@ -98,8 +98,8 @@ apply(trainData[, 2:25], 2, FUN=function(x){c('min'=min(x), 'max'=max(x))})
 
 rm(preProcess_range_model)
 ```
-#PREPARE TEST DATASET
-##FILTER BY CITY
+# PREPARE TEST DATASET
+## FILTER BY CITY
 ```{r prepare test, echo=TRUE}
 
 #splitting by city and dropping week of year
@@ -107,7 +107,7 @@ sj_test <- d_test[d_test$city == "sj",]
 
 
 ```
-##PROCESS TEST SET
+## PROCESS TEST SET
 ```{r process test, echo = TRUE}
 
 # Step 1: Impute missing values 
@@ -121,7 +121,7 @@ preProcess_range_model <- preProcess(testData3[,5:24], method=c("range"))
 testData4 <- predict(preProcess_range_model, newdata = testData3)
 
 ```
-#MULTIPLE METHODS:CORR-TOTAL_CASES
+# MULTIPLE METHODS:CORR-TOTAL_CASES
 Reducing the number of features to only those that are most correlated to total_cases
 ```{r ensemble corr_tc, echo = TRUE}
 library(caret)
@@ -149,18 +149,18 @@ reanalysis_max_air_temp_k,
                       svmLinear=caretModelSpec(method="svmLinear", tuneGrid=grid_svmLinear)))
 
 ```
-#PREDICT FOR TEST SET
+# PREDICT FOR TEST SET
 ```{r predict test, echo= TRUE}
 predict_svmLinear <- predict(models.corr$svmLinear, testData4)
 
 ```
-#COMPLETE SUBMISSION FILE FOR SJ
+# COMPLETE SUBMISSION FILE FOR SJ
 ```{r submit sj, echo= TRUE}
 sj_sol <- data.frame(sj_submit[,-4], total_cases = round(predict_svmLinear))
 ```
-#***IQ ANALYSIS***
-#PREPROCESSING
-##TRAINING AND TEST SETS(VALIDATION)
+# ***IQ ANALYSIS***
+# PREPROCESSING
+## TRAINING AND TEST SETS(VALIDATION)
 ```{r preprocessing_iq, echo = TRUE}
 
 # Create the training and test datasets
@@ -181,7 +181,7 @@ y = trainData$total_cases
 
 
 ```
-##MISSING VALUES
+## MISSING VALUES
 ```{r missing_iq, echo = TRUE}
 # Create the knn imputation model on the training data
 preProcess_missingdata_model <- preProcess(trainData[,5:25], method='knnImpute')
@@ -194,7 +194,7 @@ anyNA(trainData)
 
 
 ```
-##NORMALIZE DATA
+## NORMALIZE DATA
 ```{r standardize_iq, echo = TRUE}
 preProcess_range_model <- preProcess(trainData[,5:25], method=c("range"))
 trainData <- predict(preProcess_range_model, newdata = trainData)
@@ -206,8 +206,8 @@ apply(trainData[, 2:25], 2, FUN=function(x){c('min'=min(x), 'max'=max(x))})
 
 rm(preProcess_range_model)
 ```
-#PREPARE TEST DATASET
-##FILTER BY CITY
+# PREPARE TEST DATASET
+## FILTER BY CITY
 ```{r prepare test_iq, echo=TRUE}
 
 
@@ -216,7 +216,7 @@ iq_test <- d_test[d_test$city == "iq",]
 
 
 ```
-##PROCESS TEST SET
+## PROCESS TEST SET
 ```{r process test_iq, echo = TRUE}
 
 # Step 1: Impute missing values 
@@ -230,7 +230,7 @@ preProcess_range_model <- preProcess(testData3[,5:24], method=c("range"))
 testData4 <- predict(preProcess_range_model, newdata = testData3)
 
 ```
-#MULTIPLE METHODS:CORR-TOTAL_CASES
+# MULTIPLE METHODS:CORR-TOTAL_CASES
 Reducing the number of features to only those that are most correlated to total_cases
 ```{r ensemble corr_tc_iq, echo = TRUE}
 library(caret)
@@ -258,16 +258,16 @@ reanalysis_max_air_temp_k,
                       svmLinear=caretModelSpec(method="svmLinear", tuneGrid=grid_svmLinear)))
 
 ```
-#PREDICT FOR TEST SET
+# PREDICT FOR TEST SET
 ```{r predict test_iq, echo= TRUE}
 predict_svmLinear <- predict(models.corr$svmLinear, testData4)
 
 ```
-#COMPLETE SUBMISSION FILE FOR IQ
+# COMPLETE SUBMISSION FILE FOR IQ
 ```{r submit sj_iq, echo= TRUE}
 iq_sol <- data.frame(iq_submit[,-4], total_cases = round(predict_svmLinear))
 ```
-#***MERGE IQ & SJ DATAFRAMES***
+# ***MERGE IQ & SJ DATAFRAMES***
 ```{r merge df, echo=TRUE}
 solution <- bind_rows(sj_sol,iq_sol)
 
