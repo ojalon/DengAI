@@ -4,7 +4,7 @@ author: "Oren Jalon"
 date: "November 19, 2018"
 output: html_document
 ---
-# DENGAI
+# DENGAI 
 
 The following code is my submission to the DengAI competition on DrivenData.org.
 
